@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { RecSet, TasteProfile } from "@/lib/types";
+import { useEffect, useMemo, useState } from "react";
+import type { Category, Recommendation, RecSet, TasteProfile } from "@/lib/types";
 import { RecCard } from "./RecCard";
 import { RegenerateButton } from "./RegenerateButton";
+import { CategoryTabs, type TabValue } from "./CategoryTabs";
 import { getRatings } from "@/lib/ratings";
 
 const cacheKey = (profileId: string) => `palate:recs:${profileId}`;
@@ -13,6 +14,7 @@ export function RecsView({ profile, profileId }: { profile: TasteProfile; profil
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [demo, setDemo] = useState(false);
+  const [tab, setTab] = useState<TabValue>("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -61,6 +63,33 @@ export function RecsView({ profile, profileId }: { profile: TasteProfile; profil
     };
   }, [profile, profileId]);
 
+  const counts = useMemo<Partial<Record<Category, number>>>(() => {
+    if (!recs) return {};
+    const all: Recommendation[] = [recs.hero, ...recs.browse];
+    const c: Partial<Record<Category, number>> = {};
+    for (const r of all) c[r.category] = (c[r.category] ?? 0) + 1;
+    return c;
+  }, [recs]);
+
+  const view = useMemo<{ hero: Recommendation; rest: Recommendation[]; heading: string } | null>(
+    () => {
+      if (!recs) return null;
+      if (tab === "all") {
+        return { hero: recs.hero, rest: recs.browse, heading: "The hero pick" };
+      }
+      const all: Recommendation[] = [recs.hero, ...recs.browse];
+      const inCat = all.filter((r) => r.category === tab);
+      if (inCat.length === 0) return null;
+      const sorted = [...inCat].sort((a, b) => b.confidence - a.confidence);
+      return {
+        hero: sorted[0],
+        rest: sorted.slice(1),
+        heading: "Best in category",
+      };
+    },
+    [recs, tab],
+  );
+
   if (loading) return <RecsSkeleton />;
 
   if (error || !recs) {
@@ -74,36 +103,52 @@ export function RecsView({ profile, profileId }: { profile: TasteProfile; profil
   }
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       {demo && (
         <p className="text-xs text-muted text-center">
           Demo picks — set an API key to get recs tailored to your actual profile.
         </p>
       )}
-      <div>
-        <div className="flex items-baseline justify-between mb-4 gap-3 flex-wrap">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted">The hero pick</p>
-          <RegenerateButton
-            profile={profile}
-            profileId={profileId}
-            current={recs}
-            onNew={(r) => {
-              sessionStorage.setItem(cacheKey(profileId), JSON.stringify(r));
-              setRecs(r);
-            }}
-          />
-        </div>
-        <RecCard rec={recs.hero} hero profileId={profileId} />
+
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <CategoryTabs counts={counts} active={tab} onChange={setTab} />
+        <RegenerateButton
+          profile={profile}
+          profileId={profileId}
+          current={recs}
+          onNew={(r) => {
+            sessionStorage.setItem(cacheKey(profileId), JSON.stringify(r));
+            setRecs(r);
+            setTab("all");
+          }}
+        />
       </div>
 
-      <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-muted mb-4">Ten more</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {recs.browse.map((r) => (
-            <RecCard key={r.id} rec={r} profileId={profileId} />
-          ))}
+      {view ? (
+        <>
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted mb-4">{view.heading}</p>
+            <RecCard rec={view.hero} hero profileId={profileId} />
+          </div>
+
+          {view.rest.length > 0 && (
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-muted mb-4">
+                {tab === "all" ? "Ten more" : "More in this category"}
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {view.rest.map((r) => (
+                  <RecCard key={r.id} rec={r} profileId={profileId} />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="py-16 text-center text-muted text-sm">
+          Nothing in this category — try another.
         </div>
-      </div>
+      )}
     </div>
   );
 }

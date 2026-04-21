@@ -54,8 +54,8 @@ export default async function OG({ params }: { params: Promise<{ id: string }> }
             display: "flex",
             width: "100%",
             height: "100%",
-            background: "#faf7f2",
-            color: "#1a1815",
+            background: "#fafafa",
+            color: "#0a0a0a",
             alignItems: "center",
             justifyContent: "center",
             fontFamily: "Georgia, serif",
@@ -84,11 +84,11 @@ export default async function OG({ params }: { params: Promise<{ id: string }> }
           width: "100%",
           height: "100%",
           padding: "72px 84px",
-          background: "#f6f0e4",
-          color: "#1a1815",
+          background: "#f5f5f5",
+          color: "#0a0a0a",
           fontFamily: "FrauncesInline, Georgia, serif",
           backgroundImage:
-            "radial-gradient(at 27% 13%, rgba(201, 81, 47, 0.05) 0, transparent 42%), radial-gradient(at 73% 87%, rgba(139, 128, 116, 0.06) 0, transparent 45%)",
+            "radial-gradient(at 27% 13%, rgba(10, 10, 10, 0.02) 0, transparent 42%), radial-gradient(at 73% 87%, rgba(10, 10, 10, 0.03) 0, transparent 45%)",
         }}
       >
         <div
@@ -97,14 +97,14 @@ export default async function OG({ params }: { params: Promise<{ id: string }> }
             justifyContent: "space-between",
             fontSize: 16,
             fontFamily: "ui-monospace, Menlo, monospace",
-            color: "#8b8074",
+            color: "#737373",
             letterSpacing: 2,
             textTransform: "uppercase",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div
-              style={{ width: 10, height: 10, borderRadius: 999, background: "#c9512f" }}
+              style={{ width: 10, height: 10, borderRadius: 999, background: "#3b82f6" }}
             />
             <span>Palate · A Taste Profile</span>
           </div>
@@ -132,13 +132,13 @@ export default async function OG({ params }: { params: Promise<{ id: string }> }
           >
             &ldquo;{profile.headline}&rdquo;
           </div>
-          <div style={{ width: 80, height: 3, background: "#c9512f" }} />
+          <div style={{ width: 80, height: 3, background: "#3b82f6" }} />
           <div
             style={{
               display: "flex",
               fontSize: 28,
               lineHeight: 1.4,
-              color: "#3a332c",
+              color: "#262626",
               fontStyle: "italic",
               maxWidth: 880,
             }}
@@ -153,7 +153,7 @@ export default async function OG({ params }: { params: Promise<{ id: string }> }
             justifyContent: "space-between",
             fontSize: 14,
             fontFamily: "ui-monospace, Menlo, monospace",
-            color: "#8b8074",
+            color: "#737373",
             letterSpacing: 2,
             textTransform: "uppercase",
           }}
