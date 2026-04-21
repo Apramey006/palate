@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #faf7f2;
-  --foreground: #1a1815;
-  --muted: #8b8074;
-  --surface: #f2ece1;
-  --accent: #c9512f;
-  --accent-ink: #fff7ef;
-  --hairline: rgba(26, 24, 21, 0.08);
-  --hairline-strong: rgba(26, 24, 21, 0.18);
-  --paper: #f6f0e4;
+  --background: #fafafa;
+  --foreground: #0a0a0a;
+  --muted: #737373;
+  --surface: #f5f5f5;
+  --accent: #3b82f6;
+  --accent-ink: #ffffff;
+  --hairline: rgba(10, 10, 10, 0.08);
+  --hairline-strong: rgba(10, 10, 10, 0.18);
+  --paper: #f5f5f5;
 }
 
 @theme inline {
@@ -28,15 +28,15 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0f0e0c;
-    --foreground: #f4efe6;
-    --muted: #9c9185;
-    --surface: #1a1815;
-    --accent: #e07a55;
-    --accent-ink: #0f0e0c;
-    --hairline: rgba(244, 239, 230, 0.1);
-    --hairline-strong: rgba(244, 239, 230, 0.2);
-    --paper: #17150f;
+    --background: #0a0a0a;
+    --foreground: #f5f5f5;
+    --muted: #a3a3a3;
+    --surface: #171717;
+    --accent: #60a5fa;
+    --accent-ink: #0a0a0a;
+    --hairline: rgba(245, 245, 245, 0.1);
+    --hairline-strong: rgba(245, 245, 245, 0.2);
+    --paper: #171717;
   }
 }
 
@@ -81,7 +81,7 @@ body {
   outline: none;
   box-shadow:
     0 0 0 2px var(--background),
-    0 0 0 4px rgba(201, 81, 47, 0.5);
+    0 0 0 4px rgba(59, 130, 246, 0.5);
 }
 
 @keyframes rise {
@@ -153,6 +153,6 @@ body {
 .paper-grain {
   background-color: var(--paper);
   background-image:
-    radial-gradient(at 27% 13%, rgba(201, 81, 47, 0.04) 0, transparent 40%),
-    radial-gradient(at 73% 87%, rgba(139, 128, 116, 0.05) 0, transparent 45%);
+    radial-gradient(at 27% 13%, rgba(10, 10, 10, 0.02) 0, transparent 40%),
+    radial-gradient(at 73% 87%, rgba(10, 10, 10, 0.03) 0, transparent 45%);
 }
