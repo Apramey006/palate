@@ -31,6 +31,7 @@ Guidance:
 Rules:
 - Do NOT list example titles they mentioned — extract the underlying taste.
 - Be SPECIFIC. "You like emotional honesty" is lazy. "You'd rather something land awkwardly than land safely" is better.
+- If the input is organized by category headers (FILMS:, BOOKS:, MUSIC: etc.), still extract CROSS-CUTTING dimensions that span categories. Do NOT just mirror the structure back as per-category dimensions ("You like anxious films, nostalgic music") — synthesize across.
 - If they gave thin input, REFLECT that — say "this is a rough sketch" in the summary and keep dimensions hedged.
 - Never flatter. Never editorialize positively ("great taste!"). You are a mirror, not a fan.`;
 
