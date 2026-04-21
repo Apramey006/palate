@@ -21,7 +21,7 @@ export function TasteProfileCard({
     <section>
       {demo && (
         <div className="mb-6 text-xs text-muted border hairline rounded-md px-3 py-2 bg-surface/40">
-          Demo mode — set <code className="font-mono">ANTHROPIC_API_KEY</code> to generate your own profile.
+          Demo mode — set <code className="font-mono">GOOGLE_API_KEY</code> to generate your own profile.
         </div>
       )}
 
