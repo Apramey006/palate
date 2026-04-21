@@ -17,8 +17,8 @@ Two differentiators being tested:
 
 - Next.js 16 (App Router) + TypeScript + React 19
 - Tailwind CSS 4
-- Anthropic SDK (`@anthropic-ai/sdk`) — Claude Sonnet for taste profiling and recommendations
-- `zod` for runtime validation of LLM output (with a correction-turn retry on schema failure)
+- Google Gemini SDK (`@google/generative-ai`) — Gemini 2.0 Flash for taste profiling and recommendations. Structured output (`responseMimeType: "application/json"` + `responseSchema`) eliminates JSON-extraction fragility.
+- `zod` for defense-in-depth validation of LLM output (with a correction-turn retry on schema failure)
 - `html-to-image` for the PNG-export "save as card" flow (dynamic-imported)
 - No database. Taste profiles are encoded into the URL (base64url JSON), so profiles are shareable via link without any backend state. Feedback ratings + recent-profile history live in `localStorage`.
 
@@ -27,7 +27,7 @@ Two differentiators being tested:
 ```bash
 npm install
 cp .env.example .env.local
-# Drop your Anthropic API key into .env.local
+# Grab a free key at https://aistudio.google.com/apikey and paste into .env.local
 npm run dev
 ```
 
@@ -47,7 +47,9 @@ npm run test:watch   # vitest (watch mode)
 
 ## Deploying
 
-Built for Vercel. Push to GitHub, import the repo in Vercel, add `ANTHROPIC_API_KEY` as an env var. No DB to configure.
+Built for Vercel. Push to GitHub, import the repo in Vercel, add `GOOGLE_API_KEY` as an env var. No DB to configure.
+
+**Key safety.** The API key is read server-side (`process.env.GOOGLE_API_KEY`) inside a Next.js Route Handler. It is NOT prefixed with `NEXT_PUBLIC_`, which means Next.js keeps it out of the client JavaScript bundle — the key never leaves the server. `.env.local` is gitignored; `.env.example` (committed) contains no secret value. The only way a key leaks from this setup is if you manually commit `.env.local` with `git add -f`, paste it into a client component, or share your screen showing it.
 
 ## Structure
 
@@ -71,7 +73,7 @@ components/
   RecentProfiles.tsx             # localStorage-backed history
 lib/
   types.ts                       # zod schemas for all models
-  anthropic.ts                   # Claude client + prompts + retry
+  llm.ts                         # Gemini client + prompts + structured output + retry
   encode.ts                      # base64url profile encoding
   mock.ts                        # demo-mode data
   ratings.ts                     # localStorage ratings + profile index
@@ -82,7 +84,7 @@ lib/
 
 ## Notes for reviewers
 
-- **Prompts are the product.** Read `lib/anthropic.ts` — the `PROFILE_SYSTEM` and `RECS_SYSTEM` system prompts are where Palate's point of view lives. Treat edits like code edits.
+- **Prompts are the product.** Read `lib/llm.ts` — the `PROFILE_SYSTEM` and `RECS_SYSTEM` system prompts are where Palate's point of view lives. Treat edits like code edits.
 - **Three terminal states** on generation: `"demo"` (no key — product feature), `"ok"` (happy path), or throw (surfaced to the user as a 502). No silent fallback from a real error to canned mock data — that's the single biggest lie an LLM app can tell.
 - **LLM output is zod-validated** before being trusted. On schema failure, the code sends the parse error back to Claude for one correction turn before giving up.
 - **Rate limiting** at `lib/rateLimit.ts` is a naive in-memory map — effective for a side project, but on serverless (Vercel) the state is per-instance so it's a soft guard, not a hard wall. The upgrade path is Upstash Redis (~15 line diff).
@@ -102,7 +104,7 @@ Covers: encode/decode round-trip + garbage rejection, profile serial stability, 
 - Server-side profile persistence via Vercel KV / Upstash Redis
 - Email capture + weekly "one pick" digest keyed off that week's ratings
 - `/taste/[a]/vs/[b]` compare route
-- Tool-use / structured output via the Anthropic SDK instead of JSON extraction
+- Swap back to Anthropic Claude Sonnet for the literary voice if / when budget allows
 - Observability (Sentry / Axiom)
 - Item detail pages with where-to-find links (JustWatch, Goodreads, Spotify, etc.)
 

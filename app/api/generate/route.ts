@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { generate } from "@/lib/anthropic";
+import { generate } from "@/lib/llm";
 import { checkRateLimit, getClientKey } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
