@@ -107,10 +107,43 @@ body {
   animation: shimmer 1.8s ease-in-out infinite;
 }
 
+/* 3-beat card reveal — headline types, accent rule draws, contents fade in.
+   Reads as "authored for you" rather than "page loaded." */
+@keyframes beat-headline {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+@keyframes beat-rule {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+@keyframes beat-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.beat-headline {
+  animation: beat-headline 0.7s steps(40) 0.1s both;
+}
+.beat-rule {
+  transform-origin: left center;
+  animation: beat-rule 0.4s ease-out 0.75s both;
+}
+.beat-fade-1 { animation: beat-fade 0.5s ease-out 1.05s both; }
+.beat-fade-2 { animation: beat-fade 0.5s ease-out 1.20s both; }
+.beat-fade-3 { animation: beat-fade 0.5s ease-out 1.35s both; }
+
 @media (prefers-reduced-motion: reduce) {
   .rise,
-  .shimmer {
+  .shimmer,
+  .beat-headline,
+  .beat-rule,
+  .beat-fade-1,
+  .beat-fade-2,
+  .beat-fade-3 {
     animation: none !important;
+    clip-path: none !important;
+    transform: none !important;
+    opacity: 1 !important;
   }
   * {
     transition-duration: 0.001ms !important;
