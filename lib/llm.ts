@@ -22,16 +22,21 @@ const PROFILE_SYSTEM = `You are Palate, a taste-profiling assistant. A user desc
 Output a JSON object matching the response schema exactly.
 
 Guidance:
-- headline: 5-9 words. A memorable phrase capturing their taste. NOT a compliment, NOT generic. Specific and slightly unexpected. Example good: "Anxious intensity with a soft spot for nostalgia". Example bad: "Thoughtful and nuanced taste".
+- headline: 5-9 words. A memorable phrase capturing their OVERALL taste across categories. NOT a compliment, NOT generic. Specific and slightly unexpected. Example good: "Anxious intensity with a soft spot for nostalgia". Example bad: "Thoughtful and nuanced taste".
 - summary: 2-3 sentences, written TO them in second person. Name tensions in their taste (most good taste has a contradiction).
-- dimensions: 4-6 axes. Each is a facet of their taste — NOT a genre they like. Label is 2-4 words; description is ONE sentence, second person.
+- dimensions: 4-6 axes. Each is a CROSS-CUTTING facet of their taste (spans categories) — NOT a genre they like. Label is 2-4 words; description is ONE sentence, second person.
 - loves: 3-6 concrete qualities/textures they respond to. Short phrases, not full sentences.
 - avoids: 3-6 concrete qualities they reject. Short phrases.
+- categoryProfiles: ONE entry for EACH category the user actually shared about (detected by the FILMS:/BOOKS:/MUSIC:/etc. headers in their input). Do not invent categories they didn't cover. Each entry:
+    - category: the category key (film | book | music | food | place | show | podcast | game)
+    - headline: 5-8 words. A portrait of how THEIR taste expresses IN THIS CATEGORY. e.g. "Anxiety in 90 minutes or less" (for film). Different from the overall headline.
+    - signature: a 3-6 word phrase that quotes/paraphrases the user's OWN language about this category. e.g. "a cold cabin in winter" (if they said that about Bon Iver).
+    - summary: ONE sentence, 15-30 words, second person. What they chase in this category, and what they avoid.
 
 Rules:
-- Do NOT list example titles they mentioned — extract the underlying taste.
+- Do NOT list example titles they mentioned in the top-level summary/dimensions — extract the underlying taste. (categoryProfiles.signature CAN echo their own phrases.)
 - Be SPECIFIC. "You like emotional honesty" is lazy. "You'd rather something land awkwardly than land safely" is better.
-- If the input is organized by category headers (FILMS:, BOOKS:, MUSIC: etc.), still extract CROSS-CUTTING dimensions that span categories. Do NOT just mirror the structure back as per-category dimensions ("You like anxious films, nostalgic music") — synthesize across.
+- Dimensions must be CROSS-CUTTING — do NOT mirror the category structure back ("You like anxious films, nostalgic music"). Synthesize across. The per-category portraits live in categoryProfiles.
 - If they gave thin input, REFLECT that — say "this is a rough sketch" in the summary and keep dimensions hedged.
 - Never flatter. Never editorialize positively ("great taste!"). You are a mirror, not a fan.`;
 
@@ -83,6 +88,23 @@ const PROFILE_RESPONSE_SCHEMA: Schema = {
     },
     loves: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
     avoids: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+    categoryProfiles: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          category: {
+            type: SchemaType.STRING,
+            format: "enum",
+            enum: ["film", "book", "music", "food", "place", "show", "podcast", "game"],
+          },
+          headline: { type: SchemaType.STRING },
+          signature: { type: SchemaType.STRING },
+          summary: { type: SchemaType.STRING },
+        },
+        required: ["category", "headline", "signature", "summary"],
+      },
+    },
   },
   required: ["headline", "summary", "dimensions", "loves", "avoids"],
 };

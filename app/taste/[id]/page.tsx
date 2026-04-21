@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { decodeProfile } from "@/lib/encode";
 import { ProfileArtifact } from "@/components/ProfileArtifact";
+import { CategoryPortraits } from "@/components/CategoryPortraits";
 import { RecsView } from "@/components/RecsView";
 
 export async function generateMetadata({
@@ -51,6 +52,13 @@ export default async function TastePage({
       </div>
 
       <ProfileArtifact profile={profile} demo={demo} />
+
+      {profile.categoryProfiles && profile.categoryProfiles.length > 0 && (
+        <>
+          <hr className="my-14 hairline" />
+          <CategoryPortraits profiles={profile.categoryProfiles} />
+        </>
+      )}
 
       <hr className="my-14 hairline" />
 
