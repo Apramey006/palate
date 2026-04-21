@@ -12,6 +12,7 @@ export function RecsView({ profile, profileId }: { profile: TasteProfile; profil
   const [recs, setRecs] = useState<RecSet | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [demo, setDemo] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,10 +42,11 @@ export function RecsView({ profile, profileId }: { profile: TasteProfile; profil
           const body = (await r.json().catch(() => ({}))) as { error?: string };
           throw new Error(body.error ?? "Failed to fetch recs");
         }
-        const data = (await r.json()) as { recs: RecSet };
+        const data = (await r.json()) as { recs: RecSet; status?: "ok" | "demo" };
         if (cancelled) return;
         sessionStorage.setItem(cacheKey(profileId), JSON.stringify(data.recs));
         setRecs(data.recs);
+        if (data.status === "demo") setDemo(true);
         setLoading(false);
       } catch (e) {
         if (cancelled) return;
@@ -73,6 +75,11 @@ export function RecsView({ profile, profileId }: { profile: TasteProfile; profil
 
   return (
     <div className="space-y-10">
+      {demo && (
+        <p className="text-xs text-muted text-center">
+          Demo picks — set an API key to get recs tailored to your actual profile.
+        </p>
+      )}
       <div>
         <div className="flex items-baseline justify-between mb-4 gap-3 flex-wrap">
           <p className="text-xs uppercase tracking-[0.2em] text-muted">The hero pick</p>

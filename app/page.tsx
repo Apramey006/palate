@@ -24,7 +24,7 @@ export default function Home() {
             Profile my taste
             <span aria-hidden>→</span>
           </Link>
-          <span className="text-sm text-muted">Takes a minute. Nothing to install.</span>
+          <span className="text-sm text-muted">A paragraph in. A portrait out.</span>
         </div>
       </section>
 

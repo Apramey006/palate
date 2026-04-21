@@ -13,12 +13,12 @@ export function TasteProfileCard({
   const serial = profileSerial(profile);
   const today = new Date();
   const dateLabel = today.toLocaleDateString("en-US", {
-    month: "short",
+    month: "long",
     year: "numeric",
   });
 
   return (
-    <section className="rise">
+    <section>
       {demo && (
         <div className="mb-6 text-xs text-muted border hairline rounded-md px-3 py-2 bg-surface/40">
           Demo mode — set <code className="font-mono">ANTHROPIC_API_KEY</code> to generate your own profile.
@@ -28,9 +28,9 @@ export function TasteProfileCard({
       <div
         ref={cardRef}
         data-card="taste-profile"
-        className="relative paper-grain border hairline-strong rounded-xl p-8 md:p-10 shadow-[0_1px_0_rgba(0,0,0,0.02),inset_0_0_0_0.5px_rgba(255,255,255,0.4)] overflow-hidden"
+        className="relative paper-grain border hairline-strong rounded-xl p-8 md:p-10 shadow-[0_2px_12px_-2px_rgba(26,24,21,0.12),inset_0_0_0_0.5px_rgba(255,255,255,0.35)] overflow-hidden"
       >
-        <div className="flex items-start justify-between mb-8 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
+        <div className="flex items-start justify-between mb-8 font-mono text-[10px] uppercase tracking-[0.18em] text-muted beat-fade-1">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-accent" />
             <span>Palate</span>
@@ -43,17 +43,17 @@ export function TasteProfileCard({
           </div>
         </div>
 
-        <h1 className="font-serif-display text-4xl md:text-[3.25rem] leading-[1.05] tracking-tight italic mb-5 max-w-2xl">
+        <h1 className="font-serif-display text-4xl md:text-[3.25rem] leading-[1.05] tracking-tight italic mb-5 max-w-2xl beat-headline">
           &ldquo;{profile.headline}&rdquo;
         </h1>
 
-        <div className="w-16 h-px bg-accent mb-5" />
+        <div className="w-16 h-px bg-accent mb-5 beat-rule" />
 
-        <p className="text-lg text-foreground/85 leading-relaxed max-w-2xl mb-10 font-serif">
+        <p className="text-lg text-foreground/85 leading-relaxed max-w-2xl mb-10 font-serif beat-fade-2">
           {profile.summary}
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-[1.1fr_1fr] gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-[1.1fr_1fr] gap-10 beat-fade-3">
           <div>
             <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted mb-4 pb-2 border-b hairline">
               Dimensions
@@ -97,9 +97,9 @@ export function TasteProfileCard({
           </div>
         </div>
 
-        <div className="mt-10 pt-5 border-t hairline flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
-          <span>palate</span>
-          <span>Reads paragraphs, not checkboxes</span>
+        <div className="mt-10 pt-5 border-t hairline flex items-center justify-between font-mono text-[9px] uppercase tracking-[0.22em] text-muted beat-fade-3">
+          <span>Profile № {serial}</span>
+          <span>{dateLabel}</span>
         </div>
       </div>
     </section>

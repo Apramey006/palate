@@ -74,18 +74,78 @@ function extractJson(text: string): unknown {
   return JSON.parse(cleaned);
 }
 
-async function callClaudeText(client: Anthropic, system: string, user: string): Promise<string> {
+async function callClaudeText(
+  client: Anthropic,
+  system: string,
+  messages: { role: "user" | "assistant"; content: string }[],
+): Promise<string> {
   const res = await client.messages.create({
     model: MODEL,
     max_tokens: 2048,
     system,
-    messages: [{ role: "user", content: user }],
+    messages,
   });
   const block = res.content[0];
   if (!block || block.type !== "text") {
     throw new Error("Unexpected response shape from Claude");
   }
   return block.text;
+}
+
+/**
+ * Call Claude with a system prompt + user message, parse JSON, validate against a zod
+ * schema, and on failure send the parse error back for one correction turn before giving
+ * up. Converts ~most transient schema misses into success without a full retry, at the
+ * cost of one extra round trip on the unhappy path.
+ */
+async function callAndValidate<T>(
+  client: Anthropic,
+  system: string,
+  userText: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  schema: { safeParse: (input: unknown) => { success: true; data: T } | { success: false; error: any } },
+  label: string,
+): Promise<T> {
+  const messages: { role: "user" | "assistant"; content: string }[] = [
+    { role: "user", content: userText },
+  ];
+  const firstText = await callClaudeText(client, system, messages);
+
+  const firstRaw = safeExtractJson(firstText);
+  if (firstRaw) {
+    const first = schema.safeParse(firstRaw);
+    if (first.success) return first.data;
+    messages.push({ role: "assistant", content: firstText });
+    messages.push({
+      role: "user",
+      content: `Your previous response failed schema validation for ${label}. Error: ${first.error.message}\n\nReturn VALID JSON only, matching the schema exactly. No markdown, no preamble.`,
+    });
+  } else {
+    messages.push({ role: "assistant", content: firstText });
+    messages.push({
+      role: "user",
+      content: `Your previous response was not valid JSON. Return VALID JSON only for ${label}. No markdown, no preamble.`,
+    });
+  }
+
+  const retryText = await callClaudeText(client, system, messages);
+  const retryRaw = safeExtractJson(retryText);
+  if (!retryRaw) {
+    throw new Error(`${label}: retry also returned non-JSON`);
+  }
+  const retry = schema.safeParse(retryRaw);
+  if (!retry.success) {
+    throw new Error(`${label}: ${retry.error.message}`);
+  }
+  return retry.data;
+}
+
+function safeExtractJson(text: string): unknown | null {
+  try {
+    return extractJson(text);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -102,25 +162,27 @@ export async function generate(sourceText: string): Promise<GenerateResponse> {
   const client = getClient();
   if (!client) return { ...mockResponse(sourceText), status: "demo" };
 
-  const profileText = await callClaudeText(client, PROFILE_SYSTEM, sourceText);
-  const profileRaw = extractJson(profileText);
-  const profileParsed = ProfileFromLLMSchema.safeParse(profileRaw);
-  if (!profileParsed.success) {
-    throw new Error(`Profile schema mismatch: ${profileParsed.error.message}`);
-  }
-  const profile: TasteProfile = { ...profileParsed.data, sourceText };
+  const profileData = await callAndValidate(
+    client,
+    PROFILE_SYSTEM,
+    sourceText,
+    ProfileFromLLMSchema,
+    "TasteProfile",
+  );
+  const profile: TasteProfile = { ...profileData, sourceText };
 
   const recsPrompt = `Taste profile:\n${JSON.stringify(profile, null, 2)}\n\nOriginal source text from user:\n"""${sourceText}"""`;
-  const recsText = await callClaudeText(client, RECS_SYSTEM, recsPrompt);
-  const recsRaw = extractJson(recsText);
-  const recsParsed = RecSetFromLLMSchema.safeParse(recsRaw);
-  if (!recsParsed.success) {
-    throw new Error(`Recs schema mismatch: ${recsParsed.error.message}`);
-  }
+  const recsData = await callAndValidate(
+    client,
+    RECS_SYSTEM,
+    recsPrompt,
+    RecSetFromLLMSchema,
+    "RecSet",
+  );
 
   const recs: RecSet = {
-    hero: recsParsed.data.hero,
-    browse: recsParsed.data.browse,
+    hero: recsData.hero,
+    browse: recsData.browse,
     generatedAt: new Date().toISOString(),
   };
 
@@ -147,17 +209,18 @@ export async function regenerateRecs(
 
   const prompt = `Taste profile:\n${JSON.stringify(profile, null, 2)}\n\nOriginal source text:\n"""${profile.sourceText}"""${ratingsBlock}${avoid}`;
 
-  const recsText = await callClaudeText(client, RECS_SYSTEM, prompt);
-  const recsRaw = extractJson(recsText);
-  const recsParsed = RecSetFromLLMSchema.safeParse(recsRaw);
-  if (!recsParsed.success) {
-    throw new Error(`Recs schema mismatch: ${recsParsed.error.message}`);
-  }
+  const recsData = await callAndValidate(
+    client,
+    RECS_SYSTEM,
+    prompt,
+    RecSetFromLLMSchema,
+    "RecSet",
+  );
 
   return {
     recs: {
-      hero: recsParsed.data.hero,
-      browse: recsParsed.data.browse,
+      hero: recsData.hero,
+      browse: recsData.browse,
       generatedAt: new Date().toISOString(),
     },
     status: "ok",
