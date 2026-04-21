@@ -2,7 +2,38 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { getProfileIndex } from "@/lib/ratings";
+
+const INDEX_KEY = "palate:profiles";
+const EMPTY: ProfileIndexEntry[] = [];
+
+interface ProfileIndexEntry {
+  id: string;
+  headline: string;
+  savedAt: string;
+}
+
+// useSyncExternalStore compares snapshots with Object.is. `JSON.parse` returns a fresh
+// array reference every call, so we'd re-render forever. Cache the parsed value keyed
+// by the raw localStorage string — same raw ⇒ same reference back.
+let cachedRaw: string | null = null;
+let cachedEntries: ProfileIndexEntry[] = EMPTY;
+
+function readProfileIndex(): ProfileIndexEntry[] {
+  if (typeof window === "undefined") return EMPTY;
+  const raw = localStorage.getItem(INDEX_KEY);
+  if (raw === cachedRaw) return cachedEntries;
+  cachedRaw = raw;
+  if (!raw) {
+    cachedEntries = EMPTY;
+    return cachedEntries;
+  }
+  try {
+    cachedEntries = JSON.parse(raw) as ProfileIndexEntry[];
+  } catch {
+    cachedEntries = EMPTY;
+  }
+  return cachedEntries;
+}
 
 export function RecentProfiles() {
   const subscribe = useCallback((cb: () => void) => {
@@ -15,11 +46,7 @@ export function RecentProfiles() {
     };
   }, []);
 
-  const entries = useSyncExternalStore(
-    subscribe,
-    () => getProfileIndex(),
-    () => [],
-  );
+  const entries = useSyncExternalStore(subscribe, readProfileIndex, () => EMPTY);
 
   if (entries.length === 0) return null;
 
