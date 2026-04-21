@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Palate
 
-## Getting Started
+A taste profiler. You describe a few things you love — films, books, music, food, places — and *why*. Palate reads between the lines, builds a portrait of your taste, and recommends a hero pick plus ten more cross-category items you probably haven't found.
 
-First, run the development server:
+It's the version of a recommender that asks "why do you love what you love?" instead of "what genre?"
+
+## Why this exists
+
+Most recommenders are collaborative filtering wearing a coat. They're good at *what's popular for people like you*, bad at *what you specifically will love*. Palate tries to flip that: it prompts you to articulate your taste in your own words, then uses an LLM to map it to texture-level dimensions (anxious intensity, low tolerance for sentimentality, craft-forward, etc.) and recommend against those.
+
+Two differentiators to test:
+1. **Metacognition as a feature.** The profile handed back is half the product. You learn something about yourself reading it.
+2. **Cross-category.** A recommender that treats "the thing you want to watch tonight" and "where you want to go on vacation" as the same kind of problem.
+
+## Stack
+
+- Next.js 16 (App Router) + TypeScript
+- Tailwind CSS 4
+- Anthropic SDK (`@anthropic-ai/sdk`) — Claude Sonnet for taste profiling and recommendations
+- No database. Taste profiles are encoded into the URL (base64url JSON), so profiles are shareable via link without any backend state.
+
+## Running it
 
 ```bash
+npm install
+cp .env.example .env.local
+# Drop your Anthropic API key into .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Without an API key, Palate runs in demo mode and returns a fixed mock profile + recommendations. The UI is fully functional in demo mode — useful for screenshots, local styling work, and reviews.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deploying
 
-## Learn More
+Built for Vercel. Push to GitHub, import the repo in Vercel, add `ANTHROPIC_API_KEY` as an env var. No DB to configure.
 
-To learn more about Next.js, take a look at the following resources:
+## Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+app/
+  page.tsx              # landing
+  new/page.tsx          # taste intake (client form)
+  taste/[id]/page.tsx   # shareable profile + recs
+  api/generate/route.ts # POST text → profile + recs
+  api/recs/route.ts     # POST profile → regenerate recs
+components/
+  RecCard.tsx
+  RecsView.tsx
+  TasteProfileCard.tsx
+  ShareButton.tsx
+  RegenerateButton.tsx
+lib/
+  types.ts
+  anthropic.ts          # Claude client + prompts
+  encode.ts             # base64url profile encoding
+  mock.ts               # demo-mode data
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Roadmap (post-v1)
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Persistent accounts + save multiple profiles
+- Feedback loop: ratings refine the profile over time
+- Friend-matching: compare two profiles and find the overlap
+- Item detail pages with where-to-find links (JustWatch, Goodreads, Spotify, etc.)
+- Taste evolution timeline
