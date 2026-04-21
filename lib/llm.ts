@@ -4,7 +4,12 @@ import type { GenerateResponse, RecSet, TasteProfile, StoredRating } from "./typ
 import { ProfileFromLLMSchema, RecSetFromLLMSchema } from "./types";
 import { mockResponse } from "./mock";
 
-const MODEL = "gemini-2.0-flash";
+// gemini-2.5-flash-lite is non-thinking (no internal-reasoning tokens) which makes it
+// fast and reliable for structured JSON output. gemini-2.5-flash also works on this
+// project's free tier but its default thinking budget can burn output tokens before
+// producing the full 11-rec RecSet payload — was timing out / returning empty text.
+// gemini-2.0-flash returned "limit: 0" on this specific AI Studio project — skip it.
+const MODEL = "gemini-2.5-flash-lite";
 
 // ---------------------------------------------------------------------------
 // Prompts — treat edits like code edits. Small, reviewed, with a stated reason.
