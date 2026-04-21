@@ -6,18 +6,21 @@ It's the version of a recommender that asks "why do you love what you love?" ins
 
 ## Why this exists
 
-Most recommenders are collaborative filtering wearing a coat. They're good at *what's popular for people like you*, bad at *what you specifically will love*. Palate tries to flip that: it prompts you to articulate your taste in your own words, then uses an LLM to map it to texture-level dimensions (anxious intensity, low tolerance for sentimentality, craft-forward, etc.) and recommend against those.
+Most recommenders are collaborative filtering wearing a coat — good at *what's popular for people like you*, bad at *what you specifically will love*. Palate flips that: it prompts you to articulate your taste in your own words, then uses an LLM to map it to texture-level dimensions (anxious intensity, low tolerance for sentimentality, craft-forward, etc.) and recommends against those.
 
-Two differentiators to test:
+Two differentiators being tested:
+
 1. **Metacognition as a feature.** The profile handed back is half the product. You learn something about yourself reading it.
 2. **Cross-category.** A recommender that treats "the thing you want to watch tonight" and "where you want to go on vacation" as the same kind of problem.
 
 ## Stack
 
-- Next.js 16 (App Router) + TypeScript
+- Next.js 16 (App Router) + TypeScript + React 19
 - Tailwind CSS 4
 - Anthropic SDK (`@anthropic-ai/sdk`) — Claude Sonnet for taste profiling and recommendations
-- No database. Taste profiles are encoded into the URL (base64url JSON), so profiles are shareable via link without any backend state.
+- `zod` for runtime validation of LLM output (with a correction-turn retry on schema failure)
+- `html-to-image` for the PNG-export "save as card" flow (dynamic-imported)
+- No database. Taste profiles are encoded into the URL (base64url JSON), so profiles are shareable via link without any backend state. Feedback ratings + recent-profile history live in `localStorage`.
 
 ## Running it
 
@@ -30,7 +33,17 @@ npm run dev
 
 Open <http://localhost:3000>.
 
-Without an API key, Palate runs in demo mode and returns a fixed mock profile + recommendations. The UI is fully functional in demo mode — useful for screenshots, local styling work, and reviews.
+Without an API key, Palate runs in **demo mode** and returns a fixed mock profile + recommendations so the UI is fully usable offline. Useful for screenshots, design work, and reviews.
+
+### Scripts
+
+```bash
+npm run dev          # next dev
+npm run build        # next build
+npm run lint         # eslint
+npm test             # vitest run
+npm run test:watch   # vitest (watch mode)
+```
 
 ## Deploying
 
@@ -40,28 +53,63 @@ Built for Vercel. Push to GitHub, import the repo in Vercel, add `ANTHROPIC_API_
 
 ```
 app/
-  page.tsx              # landing
-  new/page.tsx          # taste intake (client form)
-  taste/[id]/page.tsx   # shareable profile + recs
-  api/generate/route.ts # POST text → profile + recs
-  api/recs/route.ts     # POST profile → regenerate recs
+  page.tsx                       # landing + recent-profiles strip
+  new/page.tsx                   # taste intake form
+  taste/[id]/page.tsx            # shareable profile + recs
+  taste/[id]/opengraph-image.tsx # dynamic 1200×630 OG card
+  api/generate/route.ts          # POST text → profile + recs
+  api/recs/route.ts              # POST profile → regenerate recs
+  error.tsx / not-found.tsx / loading.tsx / icon.tsx
 components/
-  RecCard.tsx
-  RecsView.tsx
-  TasteProfileCard.tsx
+  TasteProfileCard.tsx           # the framed artifact
+  ProfileArtifact.tsx            # wrapper tying card to save/share
+  SaveCardButton.tsx             # PNG export (fixed-width 1080 stage)
   ShareButton.tsx
+  RecCard.tsx                    # rec card + rating pills
+  RecsView.tsx                   # hero + browse grid, skeleton loader
   RegenerateButton.tsx
+  RecentProfiles.tsx             # localStorage-backed history
 lib/
-  types.ts
-  anthropic.ts          # Claude client + prompts
-  encode.ts             # base64url profile encoding
-  mock.ts               # demo-mode data
+  types.ts                       # zod schemas for all models
+  anthropic.ts                   # Claude client + prompts + retry
+  encode.ts                      # base64url profile encoding
+  mock.ts                        # demo-mode data
+  ratings.ts                     # localStorage ratings + profile index
+  useRating.ts                   # useSyncExternalStore hook
+  serial.ts                      # FNV-1a 6-digit profile serial
+  rateLimit.ts                   # in-memory 10/hr/IP limiter
 ```
 
-## Roadmap (post-v1)
+## Notes for reviewers
 
-- Persistent accounts + save multiple profiles
-- Feedback loop: ratings refine the profile over time
-- Friend-matching: compare two profiles and find the overlap
+- **Prompts are the product.** Read `lib/anthropic.ts` — the `PROFILE_SYSTEM` and `RECS_SYSTEM` system prompts are where Palate's point of view lives. Treat edits like code edits.
+- **Three terminal states** on generation: `"demo"` (no key — product feature), `"ok"` (happy path), or throw (surfaced to the user as a 502). No silent fallback from a real error to canned mock data — that's the single biggest lie an LLM app can tell.
+- **LLM output is zod-validated** before being trusted. On schema failure, the code sends the parse error back to Claude for one correction turn before giving up.
+- **Rate limiting** at `lib/rateLimit.ts` is a naive in-memory map — effective for a side project, but on serverless (Vercel) the state is per-instance so it's a soft guard, not a hard wall. The upgrade path is Upstash Redis (~15 line diff).
+- **Retention hooks**: per-profile ratings feed back into the next `RECS_SYSTEM` call, and the landing page lists recent profiles from the user's browser. All client-side for now; real retention needs server-side persistence + email capture, noted but not built.
+- **PNG export** renders against a fixed 1080px off-screen stage so exports look identical on phone and desktop.
+
+## Tests
+
+```bash
+npm test
+```
+
+Covers: encode/decode round-trip + garbage rejection, profile serial stability, zod schema boundaries (too few dimensions, bad strength, unknown category, too few browse items), rate limiter per-key isolation and burst behavior.
+
+## Roadmap (post-v3)
+
+- Server-side profile persistence via Vercel KV / Upstash Redis
+- Email capture + weekly "one pick" digest keyed off that week's ratings
+- `/taste/[a]/vs/[b]` compare route
+- Tool-use / structured output via the Anthropic SDK instead of JSON extraction
+- Observability (Sentry / Axiom)
 - Item detail pages with where-to-find links (JustWatch, Goodreads, Spotify, etc.)
-- Taste evolution timeline
+
+## Development history
+
+Built through three iteration rounds, each reviewed by parallel agents (PM / VC / senior SWE / senior product designer) before shipping:
+
+- **PR #1 (v1 MVP)** — core flow end-to-end, no retention loop, prompts had a point of view but recs skewed canonical.
+- **PR #2 (v2 polish)** — profile rebuilt as framed artifact, OG image, ratings loop wired, zod validation + rate limiting, three-state error handling, Fraunces via `next/font`.
+- **PR #3 (v3 polish)** — PNG export fixed for mobile (1080px stage), OG polished (summary hook, auto-shrinking headline, zod-validated decode, 1h revalidate), 6-digit serial, retry-with-correction on schema failure, `useSyncExternalStore` for localStorage-backed state, 3-beat card reveal animation, test suite.

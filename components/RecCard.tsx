@@ -1,8 +1,7 @@
 "use client";
 
-import type { Recommendation, RecRating } from "@/lib/types";
-import { useEffect, useState } from "react";
-import { getRatings, setRating as persistRating } from "@/lib/ratings";
+import type { Recommendation } from "@/lib/types";
+import { useRating } from "@/lib/useRating";
 
 const CATEGORY_LABEL: Record<Recommendation["category"], string> = {
   film: "Film",
@@ -24,25 +23,7 @@ export function RecCard({
   hero?: boolean;
   profileId: string;
 }) {
-  const [rating, setRating] = useState<RecRating | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void Promise.resolve().then(() => {
-      if (cancelled) return;
-      const existing = getRatings(profileId).find((r) => r.recId === rec.id);
-      setRating(existing?.rating ?? null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [profileId, rec.id]);
-
-  function rate(next: RecRating) {
-    const applied = rating === next ? null : next;
-    setRating(applied);
-    persistRating(profileId, { id: rec.id, title: rec.title }, applied);
-  }
+  const [rating, rate] = useRating(profileId, { id: rec.id, title: rec.title });
 
   return (
     <article

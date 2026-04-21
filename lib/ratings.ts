@@ -49,6 +49,7 @@ export function saveProfileToIndex(id: string, headline: string): ProfileIndexEn
     ...existing,
   ].slice(0, 12);
   localStorage.setItem(INDEX_KEY, JSON.stringify(next));
+  window.dispatchEvent(new Event("palate:profiles-updated"));
   return next;
 }
 
