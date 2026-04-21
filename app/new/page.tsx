@@ -1,19 +1,67 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { GenerateResponse } from "@/lib/types";
 import { encodeProfile } from "@/lib/encode";
 import { saveProfileToIndex } from "@/lib/ratings";
 
-const PROMPTS = [
-  "Describe a movie that wrecked you, and what the wreckage felt like.",
-  "A book you keep pressing on people, and what you wish they'd see in it.",
-  "An album or song that sounds like a specific place or season to you.",
-  "A meal or dish that feels like home — or somewhere you want to go.",
-  "A place you've been that stuck. The boring kind of detail is what we want.",
-  "Something everyone loves that you actively don't, and why.",
+type SectionKey = "films" | "books" | "music" | "food" | "places" | "other";
+
+interface Section {
+  key: SectionKey;
+  label: string;
+  prompt: string;
+  placeholder: string;
+}
+
+const SECTIONS: Section[] = [
+  {
+    key: "films",
+    label: "Films & shows",
+    prompt: "A film that wrecked you, or one you keep rewatching. What made it stick?",
+    placeholder:
+      "e.g. Good Time — the anxiety of it, the way it never lets you breathe. I hate long meandering movies where nothing happens.",
+  },
+  {
+    key: "books",
+    label: "Books",
+    prompt: "A book you press on people. What you wish they'd see in it.",
+    placeholder:
+      "e.g. A Little Life broke me for a week. I love writers who trust the reader — Stoner, Gilead. I'll give up on a book if it's too clever.",
+  },
+  {
+    key: "music",
+    label: "Music",
+    prompt: "An album or song that sounds like a specific place or season to you.",
+    placeholder:
+      "e.g. Bon Iver's first album sounds like a cold cabin. Big Thief live. I can't with anything that's trying to sound like the 80s.",
+  },
+  {
+    key: "food",
+    label: "Food",
+    prompt: "A dish or meal that feels like home — or somewhere you want to go.",
+    placeholder:
+      "e.g. I want food that tastes like a place, not food that looks nice on Instagram. Hainanese chicken rice, cacio e pepe, anything you eat standing up.",
+  },
+  {
+    key: "places",
+    label: "Places",
+    prompt: "A place that stuck. The boring kind of detail is what we want.",
+    placeholder:
+      "e.g. Tokyo, partly for Golden Gai — six alleys of tiny bars that don't care if you're there. I don't like cities that feel designed for photos.",
+  },
+  {
+    key: "other",
+    label: "Anything else",
+    prompt: "A surprising taste. Something everyone loves that you don't, or vice versa.",
+    placeholder:
+      "e.g. I hate when something feels trying-too-hard. I'll forgive a lot for a voice that feels honest.",
+  },
 ];
+
+const MIN_CHARS_TOTAL = 40;
+const MAX_CHARS_TOTAL = 6000;
 
 const LOADING_PHRASES = [
   "Looking for texture, not labels…",
@@ -23,15 +71,43 @@ const LOADING_PHRASES = [
   "Finding the contradictions…",
 ];
 
-const PLACEHOLDER = `e.g. I love Good Time — the anxiety of it, the way it never lets you breathe. I like Bon Iver's first album because it sounds like a cold cabin. I hate long meandering movies where nothing happens. I want food that tastes like a place, not food that looks nice on Instagram. Favorite city is Tokyo, partly for Golden Gai — six alleys of tiny bars that don't care if you're there.`;
+type Answers = Record<SectionKey, string>;
+const EMPTY_ANSWERS: Answers = {
+  films: "",
+  books: "",
+  music: "",
+  food: "",
+  places: "",
+  other: "",
+};
+
+function composeSourceText(a: Answers): string {
+  const parts: string[] = [];
+  for (const section of SECTIONS) {
+    const txt = a[section.key].trim();
+    if (!txt) continue;
+    parts.push(`${section.label.toUpperCase()}: ${txt}`);
+  }
+  return parts.join("\n\n");
+}
 
 export default function NewTastePage() {
   const router = useRouter();
-  const [text, setText] = useState("");
+  const [answers, setAnswers] = useState<Answers>(EMPTY_ANSWERS);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [phraseIdx, setPhraseIdx] = useState(0);
   const intervalRef = useRef<number | null>(null);
+
+  const totalChars = useMemo(
+    () =>
+      Object.values(answers).reduce((n, s) => n + s.trim().length, 0),
+    [answers],
+  );
+  const filledSections = useMemo(
+    () => Object.values(answers).filter((s) => s.trim().length > 0).length,
+    [answers],
+  );
 
   useEffect(() => {
     if (!loading) return;
@@ -46,10 +122,17 @@ export default function NewTastePage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (text.trim().length < 20) {
-      setError("Tell me a little more — a few sentences, not a few words.");
+    if (totalChars < MIN_CHARS_TOTAL) {
+      setError(
+        `Tell me a little more — at least ${MIN_CHARS_TOTAL} characters total across any of the sections.`,
+      );
       return;
     }
+    if (totalChars > MAX_CHARS_TOTAL) {
+      setError(`That's a lot — keep it under ${MAX_CHARS_TOTAL} characters total.`);
+      return;
+    }
+    const text = composeSourceText(answers);
     setLoading(true);
     try {
       const res = await fetch("/api/generate", {
@@ -90,58 +173,102 @@ export default function NewTastePage() {
     );
   }
 
+  const canSubmit = totalChars >= MIN_CHARS_TOTAL && totalChars <= MAX_CHARS_TOTAL;
+
   return (
     <div className="max-w-2xl mx-auto px-6 py-16 w-full">
       <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted mb-4">Step 1 of 1</p>
       <h1 className="font-serif-display text-4xl md:text-5xl leading-tight tracking-tight mb-4">
         Describe what you love.
       </h1>
-      <p className="text-muted leading-relaxed mb-8">
-        Write a paragraph. Mix categories — movies, books, music, food, places. Say what you love{" "}
-        <em>and why</em>. Say what you can&apos;t stand. The &ldquo;why&rdquo; is the whole point.
+      <p className="text-muted leading-relaxed mb-10">
+        Fill in whatever sections you want — skip the rest. Short, specific, and{" "}
+        <em>why</em> matter more than long.
       </p>
 
-      <details className="mb-6 group">
-        <summary className="text-sm text-muted cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-2">
-          <span className="group-open:rotate-90 transition-transform inline-block">→</span>
-          Need a prompt?
-        </summary>
-        <ul className="mt-3 space-y-2 text-sm text-muted pl-6">
-          {PROMPTS.map((p) => (
-            <li key={p} className="leading-relaxed">
-              • {p}
-            </li>
-          ))}
-        </ul>
-      </details>
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {SECTIONS.map((section, i) => (
+          <SectionField
+            key={section.key}
+            section={section}
+            index={i + 1}
+            total={SECTIONS.length}
+            value={answers[section.key]}
+            disabled={loading}
+            onChange={(v) =>
+              setAnswers((prev) => ({ ...prev, [section.key]: v }))
+            }
+          />
+        ))}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={PLACEHOLDER}
-          rows={12}
-          disabled={loading}
-          className="w-full p-5 bg-surface border hairline rounded-lg resize-y font-serif text-lg leading-relaxed focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:opacity-50 placeholder:text-muted/70"
-        />
-        <div className="flex items-center justify-between text-xs text-muted font-mono">
-          <span>{text.length} / 4000</span>
-          <span>{text.trim().split(/\s+/).filter(Boolean).length} words</span>
+        <div className="sticky bottom-4 z-10 -mx-2">
+          <div className="bg-background/80 backdrop-blur-sm border hairline rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-xs text-muted font-mono tabular-nums">
+              {filledSections}/{SECTIONS.length} sections ·{" "}
+              <span
+                className={
+                  totalChars < MIN_CHARS_TOTAL
+                    ? "text-muted"
+                    : totalChars > MAX_CHARS_TOTAL
+                    ? "text-accent"
+                    : "text-foreground"
+                }
+              >
+                {totalChars} chars
+              </span>
+            </div>
+            <button
+              type="submit"
+              disabled={!canSubmit || loading}
+              className="inline-flex items-center justify-center gap-2 bg-accent text-accent-ink px-5 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed focus-ring"
+            >
+              Build my taste profile
+              <span aria-hidden>→</span>
+            </button>
+          </div>
+          {error && (
+            <p className="mt-2 text-sm text-accent text-right" role="alert">
+              {error}
+            </p>
+          )}
         </div>
-        {error && (
-          <p className="text-sm text-accent" role="alert">
-            {error}
-          </p>
-        )}
-        <button
-          type="submit"
-          disabled={loading || text.trim().length < 20}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-accent text-accent-ink px-6 py-3 rounded-full font-medium hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed focus-ring"
-        >
-          Build my taste profile
-          <span aria-hidden>→</span>
-        </button>
       </form>
     </div>
+  );
+}
+
+function SectionField({
+  section,
+  index,
+  total,
+  value,
+  onChange,
+  disabled,
+}: {
+  section: Section;
+  index: number;
+  total: number;
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <section>
+      <div className="flex items-baseline justify-between mb-2 gap-3">
+        <h2 className="font-serif text-xl tracking-tight">{section.label}</h2>
+        <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-muted">
+          {String(index).padStart(2, "0")} / {String(total).padStart(2, "0")}
+        </span>
+      </div>
+      <p className="text-sm text-muted leading-relaxed mb-3">{section.prompt}</p>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={section.placeholder}
+        rows={3}
+        disabled={disabled}
+        className="w-full p-4 bg-surface border hairline rounded-lg resize-y font-serif text-base leading-relaxed focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:opacity-50 placeholder:text-muted/70"
+      />
+    </section>
   );
 }
