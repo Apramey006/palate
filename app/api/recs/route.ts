@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { regenerateRecs } from "@/lib/anthropic";
+import { regenerateRecs } from "@/lib/llm";
 import { checkRateLimit, getClientKey } from "@/lib/rateLimit";
 import { TasteProfileSchema } from "@/lib/types";
 import type { StoredRating } from "@/lib/types";

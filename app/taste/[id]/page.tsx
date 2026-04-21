@@ -37,7 +37,7 @@ export default async function TastePage({
   const { id } = await params;
   const profile = decodeProfile(id);
   if (!profile) notFound();
-  const demo = !process.env.ANTHROPIC_API_KEY;
+  const demo = !process.env.GOOGLE_API_KEY;
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-12 w-full">
