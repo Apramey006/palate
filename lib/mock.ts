@@ -13,6 +13,26 @@ const MOCK_PROFILE: TasteProfile = {
   ],
   loves: ["tight pacing", "unreliable narrators", "music that sounds like weather", "food that tastes like a place", "places with a real hum"],
   avoids: ["sprawling runtimes", "characters you can't feel any friction with", "food that's only pretty", "places designed for photos"],
+  categoryProfiles: [
+    {
+      category: "film",
+      headline: "Anxiety in ninety minutes or less",
+      signature: "never lets you breathe",
+      summary: "You chase films that keep tension humming under every frame, and you walk away from anything that asks for your patience without earning it.",
+    },
+    {
+      category: "music",
+      headline: "Music that sounds like weather",
+      signature: "a cold cabin in winter",
+      summary: "You want records that conjure a specific place or season — texture over production, honesty over polish.",
+    },
+    {
+      category: "place",
+      headline: "Places with a real hum, not a pose",
+      signature: "six alleys that don't care if you're there",
+      summary: "You're drawn to cities and corners with lived-in friction, and you can smell a place designed for the camera from a block away.",
+    },
+  ],
   sourceText: "demo",
 };
 

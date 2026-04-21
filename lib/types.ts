@@ -21,12 +21,21 @@ export const TasteDimensionSchema = z.object({
 });
 export type TasteDimension = z.infer<typeof TasteDimensionSchema>;
 
+export const CategoryProfileSchema = z.object({
+  category: CategorySchema,
+  headline: z.string().min(1).max(120),
+  signature: z.string().min(1).max(120),
+  summary: z.string().min(1).max(400),
+});
+export type CategoryProfile = z.infer<typeof CategoryProfileSchema>;
+
 export const TasteProfileSchema = z.object({
   headline: z.string().min(1).max(120),
   summary: z.string().min(1).max(800),
   dimensions: z.array(TasteDimensionSchema).min(3).max(7),
   loves: z.array(z.string().min(1).max(60)).min(1).max(8),
   avoids: z.array(z.string().min(1).max(60)).min(1).max(8),
+  categoryProfiles: z.array(CategoryProfileSchema).max(8).optional(),
   sourceText: z.string(),
 });
 export type TasteProfile = z.infer<typeof TasteProfileSchema>;
@@ -61,6 +70,7 @@ export interface GenerateResponse {
 
 // Schemas for LLM output (sourceText added server-side; generatedAt added server-side).
 export const ProfileFromLLMSchema = TasteProfileSchema.omit({ sourceText: true });
+export type ProfileFromLLM = z.infer<typeof ProfileFromLLMSchema>;
 export const RecSetFromLLMSchema = z.object({
   hero: RecommendationSchema,
   browse: z.array(RecommendationSchema).min(6).max(14),

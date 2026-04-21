@@ -74,4 +74,31 @@ describe("Zod schemas", () => {
     const withSource = { ...validProfileFromLLM, sourceText: "i love good time" };
     expect(TasteProfileSchema.safeParse(withSource).success).toBe(true);
   });
+
+  it("accepts a TasteProfile with categoryProfiles", () => {
+    const withCategories = {
+      ...validProfileFromLLM,
+      sourceText: "i love good time",
+      categoryProfiles: [
+        {
+          category: "film" as const,
+          headline: "Anxiety in 90 minutes or less",
+          signature: "never lets you breathe",
+          summary: "You chase films that keep tension humming.",
+        },
+      ],
+    };
+    expect(TasteProfileSchema.safeParse(withCategories).success).toBe(true);
+  });
+
+  it("rejects a categoryProfile with an unknown category", () => {
+    const bad = {
+      ...validProfileFromLLM,
+      sourceText: "x",
+      categoryProfiles: [
+        { category: "wine", headline: "x", signature: "x", summary: "x" },
+      ],
+    };
+    expect(TasteProfileSchema.safeParse(bad).success).toBe(false);
+  });
 });

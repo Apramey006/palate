@@ -2,66 +2,38 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { GenerateResponse } from "@/lib/types";
+import type { Category, GenerateResponse } from "@/lib/types";
 import { encodeProfile } from "@/lib/encode";
 import { saveProfileToIndex } from "@/lib/ratings";
 
-type SectionKey = "films" | "books" | "music" | "food" | "places" | "other";
-
-interface Section {
-  key: SectionKey;
+interface CategoryMeta {
+  key: Category;
   label: string;
-  prompt: string;
-  placeholder: string;
+  singular: string; // "a film"
+  titleHint: string;
+  whyHint: string;
 }
 
-const SECTIONS: Section[] = [
-  {
-    key: "films",
-    label: "Films & shows",
-    prompt: "A film that wrecked you, or one you keep rewatching. What made it stick?",
-    placeholder:
-      "e.g. Good Time — the anxiety of it, the way it never lets you breathe. I hate long meandering movies where nothing happens.",
-  },
-  {
-    key: "books",
-    label: "Books",
-    prompt: "A book you press on people. What you wish they'd see in it.",
-    placeholder:
-      "e.g. A Little Life broke me for a week. I love writers who trust the reader — Stoner, Gilead. I'll give up on a book if it's too clever.",
-  },
-  {
-    key: "music",
-    label: "Music",
-    prompt: "An album or song that sounds like a specific place or season to you.",
-    placeholder:
-      "e.g. Bon Iver's first album sounds like a cold cabin. Big Thief live. I can't with anything that's trying to sound like the 80s.",
-  },
-  {
-    key: "food",
-    label: "Food",
-    prompt: "A dish or meal that feels like home — or somewhere you want to go.",
-    placeholder:
-      "e.g. I want food that tastes like a place, not food that looks nice on Instagram. Hainanese chicken rice, cacio e pepe, anything you eat standing up.",
-  },
-  {
-    key: "places",
-    label: "Places",
-    prompt: "A place that stuck. The boring kind of detail is what we want.",
-    placeholder:
-      "e.g. Tokyo, partly for Golden Gai — six alleys of tiny bars that don't care if you're there. I don't like cities that feel designed for photos.",
-  },
-  {
-    key: "other",
-    label: "Anything else",
-    prompt: "A surprising taste. Something everyone loves that you don't, or vice versa.",
-    placeholder:
-      "e.g. I hate when something feels trying-too-hard. I'll forgive a lot for a voice that feels honest.",
-  },
+const CATEGORIES: CategoryMeta[] = [
+  { key: "film",    label: "Films & shows", singular: "a film",   titleHint: "Good Time",                    whyHint: "the anxiety of it, never lets you breathe" },
+  { key: "show",    label: "TV",            singular: "a show",   titleHint: "The Bear",                     whyHint: "kitchen chaos as grief language" },
+  { key: "book",    label: "Books",         singular: "a book",   titleHint: "A Little Life",                whyHint: "earns every tear it draws" },
+  { key: "music",   label: "Music",         singular: "an album", titleHint: "For Emma, Forever Ago",        whyHint: "sounds like a cold cabin" },
+  { key: "food",    label: "Food",          singular: "a dish",   titleHint: "Hainanese chicken rice",       whyHint: "refuses to show off" },
+  { key: "place",   label: "Places",        singular: "a place",  titleHint: "Golden Gai, Tokyo",            whyHint: "six alleys that don't care if you're there" },
+  { key: "podcast", label: "Podcasts",      singular: "a podcast",titleHint: "Heavyweight",                  whyHint: "nostalgia with a scalpel, not a ladle" },
+  { key: "game",    label: "Games",         singular: "a game",   titleHint: "Outer Wilds",                  whyHint: "the physics are the story" },
 ];
 
-const MIN_CHARS_TOTAL = 40;
-const MAX_CHARS_TOTAL = 6000;
+const MIN_SLOTS_TO_SUBMIT = 3;
+const TOTAL_SLOTS_PER_CATEGORY = 4;
+
+interface Slot {
+  title: string;
+  why: string;
+}
+
+type Answers = Partial<Record<Category, Slot[]>>;
 
 const LOADING_PHRASES = [
   "Looking for texture, not labels…",
@@ -71,43 +43,32 @@ const LOADING_PHRASES = [
   "Finding the contradictions…",
 ];
 
-type Answers = Record<SectionKey, string>;
-const EMPTY_ANSWERS: Answers = {
-  films: "",
-  books: "",
-  music: "",
-  food: "",
-  places: "",
-  other: "",
-};
+function emptySlots(): Slot[] {
+  return Array.from({ length: TOTAL_SLOTS_PER_CATEGORY }, () => ({ title: "", why: "" }));
+}
 
-function composeSourceText(a: Answers): string {
+function composeSourceText(picked: Category[], answers: Answers): string {
   const parts: string[] = [];
-  for (const section of SECTIONS) {
-    const txt = a[section.key].trim();
-    if (!txt) continue;
-    parts.push(`${section.label.toUpperCase()}: ${txt}`);
+  for (const cat of picked) {
+    const meta = CATEGORIES.find((c) => c.key === cat)!;
+    const slots = (answers[cat] ?? []).filter((s) => s.title.trim().length > 0);
+    if (slots.length === 0) continue;
+    const lines = slots.map((s) =>
+      s.why.trim() ? `- ${s.title.trim()}: ${s.why.trim()}` : `- ${s.title.trim()}`,
+    );
+    parts.push(`${meta.label.toUpperCase()}:\n${lines.join("\n")}`);
   }
   return parts.join("\n\n");
 }
 
 export default function NewTastePage() {
   const router = useRouter();
-  const [answers, setAnswers] = useState<Answers>(EMPTY_ANSWERS);
+  const [picked, setPicked] = useState<Category[]>([]);
+  const [answers, setAnswers] = useState<Answers>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [phraseIdx, setPhraseIdx] = useState(0);
   const intervalRef = useRef<number | null>(null);
-
-  const totalChars = useMemo(
-    () =>
-      Object.values(answers).reduce((n, s) => n + s.trim().length, 0),
-    [answers],
-  );
-  const filledSections = useMemo(
-    () => Object.values(answers).filter((s) => s.trim().length > 0).length,
-    [answers],
-  );
 
   useEffect(() => {
     if (!loading) return;
@@ -119,20 +80,61 @@ export default function NewTastePage() {
     };
   }, [loading]);
 
+  function togglePick(cat: Category) {
+    setPicked((prev) => {
+      if (prev.includes(cat)) {
+        setAnswers((a) => {
+          const next = { ...a };
+          delete next[cat];
+          return next;
+        });
+        return prev.filter((c) => c !== cat);
+      }
+      setAnswers((a) => ({ ...a, [cat]: a[cat] ?? emptySlots() }));
+      return [...prev, cat];
+    });
+  }
+
+  function updateSlot(cat: Category, idx: number, field: keyof Slot, value: string) {
+    setAnswers((prev) => {
+      const current = prev[cat] ?? emptySlots();
+      const next = [...current];
+      next[idx] = { ...next[idx], [field]: value };
+      return { ...prev, [cat]: next };
+    });
+  }
+
+  const filledPerCategory = useMemo(() => {
+    const result: Partial<Record<Category, number>> = {};
+    for (const cat of picked) {
+      result[cat] = (answers[cat] ?? []).filter((s) => s.title.trim().length > 0).length;
+    }
+    return result;
+  }, [picked, answers]);
+
+  const validation: { ok: boolean; reason: string | null } = (() => {
+    if (picked.length === 0) return { ok: false, reason: "Pick at least one category above." };
+    for (const cat of picked) {
+      const filled = filledPerCategory[cat] ?? 0;
+      if (filled < MIN_SLOTS_TO_SUBMIT) {
+        const meta = CATEGORIES.find((c) => c.key === cat)!;
+        return {
+          ok: false,
+          reason: `Add at least ${MIN_SLOTS_TO_SUBMIT} entries to ${meta.label}. (${filled}/${MIN_SLOTS_TO_SUBMIT})`,
+        };
+      }
+    }
+    return { ok: true, reason: null };
+  })();
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (totalChars < MIN_CHARS_TOTAL) {
-      setError(
-        `Tell me a little more — at least ${MIN_CHARS_TOTAL} characters total across any of the sections.`,
-      );
+    if (!validation.ok) {
+      setError(validation.reason);
       return;
     }
-    if (totalChars > MAX_CHARS_TOTAL) {
-      setError(`That's a lot — keep it under ${MAX_CHARS_TOTAL} characters total.`);
-      return;
-    }
-    const text = composeSourceText(answers);
+    const text = composeSourceText(picked, answers);
     setLoading(true);
     try {
       const res = await fetch("/api/generate", {
@@ -173,102 +175,117 @@ export default function NewTastePage() {
     );
   }
 
-  const canSubmit = totalChars >= MIN_CHARS_TOTAL && totalChars <= MAX_CHARS_TOTAL;
-
   return (
     <div className="max-w-2xl mx-auto px-6 py-16 w-full">
-      <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted mb-4">Step 1 of 1</p>
+      <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted mb-4">Step 1 of 2</p>
       <h1 className="font-serif-display text-4xl md:text-5xl leading-tight tracking-tight mb-4">
-        Describe what you love.
+        Which tastes should Palate read?
       </h1>
-      <p className="text-muted leading-relaxed mb-10">
-        Fill in whatever sections you want — skip the rest. Short, specific, and{" "}
-        <em>why</em> matter more than long.
+      <p className="text-muted leading-relaxed mb-8">
+        Pick the categories you actually care about. For each one, you&apos;ll share{" "}
+        {MIN_SLOTS_TO_SUBMIT}–{TOTAL_SLOTS_PER_CATEGORY} specific things you love, and why.
       </p>
 
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {SECTIONS.map((section, i) => (
-          <SectionField
-            key={section.key}
-            section={section}
-            index={i + 1}
-            total={SECTIONS.length}
-            value={answers[section.key]}
-            disabled={loading}
-            onChange={(v) =>
-              setAnswers((prev) => ({ ...prev, [section.key]: v }))
-            }
-          />
-        ))}
-
-        <div className="sticky bottom-4 z-10 -mx-2">
-          <div className="bg-background/80 backdrop-blur-sm border hairline rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-            <div className="text-xs text-muted font-mono tabular-nums">
-              {filledSections}/{SECTIONS.length} sections ·{" "}
-              <span
-                className={
-                  totalChars < MIN_CHARS_TOTAL
-                    ? "text-muted"
-                    : totalChars > MAX_CHARS_TOTAL
-                    ? "text-accent"
-                    : "text-foreground"
-                }
-              >
-                {totalChars} chars
-              </span>
-            </div>
+      <div className="flex flex-wrap gap-2 mb-12">
+        {CATEGORIES.map((c) => {
+          const active = picked.includes(c.key);
+          return (
             <button
-              type="submit"
-              disabled={!canSubmit || loading}
-              className="inline-flex items-center justify-center gap-2 bg-accent text-accent-ink px-5 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed focus-ring"
+              key={c.key}
+              type="button"
+              onClick={() => togglePick(c.key)}
+              aria-pressed={active}
+              className={`px-3 py-1.5 rounded-full text-sm border transition-colors focus-ring ${
+                active
+                  ? "bg-foreground text-background border-transparent"
+                  : "text-muted hover:text-foreground hairline"
+              }`}
             >
-              Build my taste profile
-              <span aria-hidden>→</span>
+              {c.label}
             </button>
+          );
+        })}
+      </div>
+
+      {picked.length > 0 && (
+        <>
+          <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted mb-4">Step 2 of 2</p>
+          <h2 className="font-serif-display text-3xl md:text-4xl leading-tight mb-8">
+            Name a few and say why.
+          </h2>
+        </>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-12">
+        {picked.map((cat) => {
+          const meta = CATEGORIES.find((c) => c.key === cat)!;
+          const slots = answers[cat] ?? emptySlots();
+          const filled = filledPerCategory[cat] ?? 0;
+          return (
+            <section key={cat}>
+              <div className="flex items-baseline justify-between mb-4 gap-3">
+                <h3 className="font-serif text-2xl tracking-tight">{meta.label}</h3>
+                <span
+                  className={`text-[10px] font-mono uppercase tracking-[0.15em] ${
+                    filled >= MIN_SLOTS_TO_SUBMIT ? "text-foreground/70" : "text-muted"
+                  }`}
+                >
+                  {filled} / {MIN_SLOTS_TO_SUBMIT}+ needed
+                </span>
+              </div>
+              <div className="space-y-3">
+                {slots.map((slot, i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-1 md:grid-cols-[1fr_1.3fr] gap-2 items-start"
+                  >
+                    <input
+                      type="text"
+                      value={slot.title}
+                      onChange={(e) => updateSlot(cat, i, "title", e.target.value)}
+                      placeholder={i === 0 ? meta.titleHint : meta.singular}
+                      className="w-full px-3 py-2 bg-surface border hairline rounded-md font-serif text-base focus:outline-none focus:ring-2 focus:ring-accent/30 placeholder:text-muted/60"
+                      aria-label={`${meta.label} — item ${i + 1} title`}
+                    />
+                    <input
+                      type="text"
+                      value={slot.why}
+                      onChange={(e) => updateSlot(cat, i, "why", e.target.value)}
+                      placeholder={i === 0 ? meta.whyHint : "why (optional but encouraged)"}
+                      className="w-full px-3 py-2 bg-surface border hairline rounded-md font-serif text-base focus:outline-none focus:ring-2 focus:ring-accent/30 placeholder:text-muted/60"
+                      aria-label={`${meta.label} — item ${i + 1} reason`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+
+        {picked.length > 0 && (
+          <div className="sticky bottom-4 z-10 -mx-2">
+            <div className="bg-background/80 backdrop-blur-sm border hairline rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+              <div className="text-xs text-muted font-mono tabular-nums">
+                {picked.length} categor{picked.length === 1 ? "y" : "ies"} ·{" "}
+                {Object.values(filledPerCategory).reduce((a, b) => a + (b ?? 0), 0)} entries
+              </div>
+              <button
+                type="submit"
+                disabled={!validation.ok || loading}
+                className="inline-flex items-center justify-center gap-2 bg-accent text-accent-ink px-5 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed focus-ring"
+              >
+                Build my taste profile
+                <span aria-hidden>→</span>
+              </button>
+            </div>
+            {(error || (!validation.ok && picked.length > 0)) && (
+              <p className="mt-2 text-sm text-accent text-right" role="alert">
+                {error ?? validation.reason}
+              </p>
+            )}
           </div>
-          {error && (
-            <p className="mt-2 text-sm text-accent text-right" role="alert">
-              {error}
-            </p>
-          )}
-        </div>
+        )}
       </form>
     </div>
-  );
-}
-
-function SectionField({
-  section,
-  index,
-  total,
-  value,
-  onChange,
-  disabled,
-}: {
-  section: Section;
-  index: number;
-  total: number;
-  value: string;
-  onChange: (v: string) => void;
-  disabled: boolean;
-}) {
-  return (
-    <section>
-      <div className="flex items-baseline justify-between mb-2 gap-3">
-        <h2 className="font-serif text-xl tracking-tight">{section.label}</h2>
-        <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-muted">
-          {String(index).padStart(2, "0")} / {String(total).padStart(2, "0")}
-        </span>
-      </div>
-      <p className="text-sm text-muted leading-relaxed mb-3">{section.prompt}</p>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={section.placeholder}
-        rows={3}
-        disabled={disabled}
-        className="w-full p-4 bg-surface border hairline rounded-lg resize-y font-serif text-base leading-relaxed focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:opacity-50 placeholder:text-muted/70"
-      />
-    </section>
   );
 }
