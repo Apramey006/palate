@@ -134,7 +134,9 @@ const MOCK_RECS: Recommendation[] = [
   },
 ];
 
-export function mockResponse(sourceText: string): GenerateResponse {
+export function mockResponse(
+  sourceText: string,
+): Pick<GenerateResponse, "profile" | "recs"> {
   return {
     profile: { ...MOCK_PROFILE, sourceText },
     recs: {
@@ -142,6 +144,5 @@ export function mockResponse(sourceText: string): GenerateResponse {
       browse: MOCK_RECS.slice(1),
       generatedAt: new Date().toISOString(),
     },
-    demo: true,
   };
 }

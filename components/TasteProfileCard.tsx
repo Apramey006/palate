@@ -1,71 +1,105 @@
 import type { TasteProfile } from "@/lib/types";
+import { profileSerial } from "@/lib/serial";
 
-export function TasteProfileCard({ profile, demo }: { profile: TasteProfile; demo?: boolean }) {
+export function TasteProfileCard({
+  profile,
+  demo,
+  cardRef,
+}: {
+  profile: TasteProfile;
+  demo?: boolean;
+  cardRef?: React.Ref<HTMLDivElement>;
+}) {
+  const serial = profileSerial(profile);
+  const today = new Date();
+  const dateLabel = today.toLocaleDateString("en-US", {
+    month: "short",
+    year: "numeric",
+  });
+
   return (
     <section className="rise">
       {demo && (
-        <div className="mb-6 text-xs text-muted border hairline rounded px-3 py-2 bg-surface/40">
-          Demo mode — set <code className="font-mono">ANTHROPIC_API_KEY</code> to generate your own
-          profile.
+        <div className="mb-6 text-xs text-muted border hairline rounded-md px-3 py-2 bg-surface/40">
+          Demo mode — set <code className="font-mono">ANTHROPIC_API_KEY</code> to generate your own profile.
         </div>
       )}
-      <p className="text-xs uppercase tracking-[0.2em] text-muted mb-3">Your taste</p>
-      <h1 className="font-serif text-4xl md:text-5xl leading-tight tracking-tight mb-5">
-        {profile.headline}
-      </h1>
-      <p className="text-lg text-foreground/80 leading-relaxed max-w-2xl">{profile.summary}</p>
 
-      <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div>
-          <p className="text-xs uppercase tracking-[0.15em] text-muted mb-4">Dimensions</p>
-          <ul className="space-y-3">
-            {profile.dimensions.map((d) => (
-              <li key={d.label}>
-                <div className="flex items-baseline justify-between gap-4 mb-1">
-                  <span className="text-sm font-medium">{d.label}</span>
-                  <span className="text-xs text-muted font-mono">
-                    {Math.round(d.strength * 100)}
-                  </span>
-                </div>
-                <div className="h-1 bg-hairline rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-accent"
-                    style={{ width: `${Math.round(d.strength * 100)}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted mt-1.5 leading-relaxed">{d.description}</p>
-              </li>
-            ))}
-          </ul>
+      <div
+        ref={cardRef}
+        data-card="taste-profile"
+        className="relative paper-grain border hairline-strong rounded-xl p-8 md:p-10 shadow-[0_1px_0_rgba(0,0,0,0.02),inset_0_0_0_0.5px_rgba(255,255,255,0.4)] overflow-hidden"
+      >
+        <div className="flex items-start justify-between mb-8 font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+            <span>Palate</span>
+            <span>·</span>
+            <span>A Taste Profile</span>
+          </div>
+          <div className="text-right">
+            <div>№ {serial}</div>
+            <div>{dateLabel}</div>
+          </div>
         </div>
 
-        <div className="space-y-6">
+        <h1 className="font-serif-display text-4xl md:text-[3.25rem] leading-[1.05] tracking-tight italic mb-5 max-w-2xl">
+          &ldquo;{profile.headline}&rdquo;
+        </h1>
+
+        <div className="w-16 h-px bg-accent mb-5" />
+
+        <p className="text-lg text-foreground/85 leading-relaxed max-w-2xl mb-10 font-serif">
+          {profile.summary}
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-[1.1fr_1fr] gap-10">
           <div>
-            <p className="text-xs uppercase tracking-[0.15em] text-muted mb-3">You respond to</p>
-            <div className="flex flex-wrap gap-2">
-              {profile.loves.map((l) => (
-                <span
-                  key={l}
-                  className="text-sm px-3 py-1 rounded-full border hairline bg-surface/60"
-                >
-                  {l}
-                </span>
+            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted mb-4 pb-2 border-b hairline">
+              Dimensions
+            </p>
+            <dl className="space-y-3">
+              {profile.dimensions.map((d) => (
+                <div key={d.label}>
+                  <div className="flex items-baseline justify-between gap-4 mb-1">
+                    <dt className="text-sm font-medium">{d.label}</dt>
+                    <dd className="font-mono text-xs text-muted tabular-nums">
+                      {String(Math.round(d.strength * 100)).padStart(2, "0")}
+                    </dd>
+                  </div>
+                  <p className="text-xs text-muted leading-relaxed">{d.description}</p>
+                </div>
               ))}
+            </dl>
+          </div>
+
+          <div className="space-y-8">
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted mb-3 pb-2 border-b hairline">
+                You respond to
+              </p>
+              <ul className="text-sm leading-relaxed space-y-1 font-serif">
+                {profile.loves.map((l) => (
+                  <li key={l}>— {l}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted mb-3 pb-2 border-b hairline">
+                You walk away from
+              </p>
+              <ul className="text-sm leading-relaxed space-y-1 font-serif text-muted">
+                {profile.avoids.map((a) => (
+                  <li key={a}>— {a}</li>
+                ))}
+              </ul>
             </div>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.15em] text-muted mb-3">You walk away from</p>
-            <div className="flex flex-wrap gap-2">
-              {profile.avoids.map((a) => (
-                <span
-                  key={a}
-                  className="text-sm px-3 py-1 rounded-full border hairline text-muted"
-                >
-                  {a}
-                </span>
-              ))}
-            </div>
-          </div>
+        </div>
+
+        <div className="mt-10 pt-5 border-t hairline flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
+          <span>palate</span>
+          <span>Reads paragraphs, not checkboxes</span>
         </div>
       </div>
     </section>
