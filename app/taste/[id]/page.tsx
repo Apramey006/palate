@@ -1,9 +1,33 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { decodeProfile } from "@/lib/encode";
-import { TasteProfileCard } from "@/components/TasteProfileCard";
+import { ProfileArtifact } from "@/components/ProfileArtifact";
 import { RecsView } from "@/components/RecsView";
-import { ShareButton } from "@/components/ShareButton";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const profile = decodeProfile(id);
+  if (!profile) return { title: "Palate" };
+  return {
+    title: `${profile.headline} — a Palate taste profile`,
+    description: profile.summary,
+    openGraph: {
+      title: profile.headline,
+      description: profile.summary,
+      type: "profile",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: profile.headline,
+      description: profile.summary,
+    },
+  };
+}
 
 export default async function TastePage({
   params,
@@ -13,21 +37,24 @@ export default async function TastePage({
   const { id } = await params;
   const profile = decodeProfile(id);
   if (!profile) notFound();
+  const demo = !process.env.ANTHROPIC_API_KEY;
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-12 w-full">
       <div className="flex items-center justify-between mb-10">
-        <Link href="/new" className="text-sm text-muted hover:text-foreground transition-colors">
-          ← Start over
+        <Link
+          href="/new"
+          className="text-sm text-muted hover:text-foreground transition-colors focus-ring rounded-sm"
+        >
+          ← Profile something else
         </Link>
-        <ShareButton />
       </div>
 
-      <TasteProfileCard profile={profile} />
+      <ProfileArtifact profile={profile} demo={demo} />
 
       <hr className="my-14 hairline" />
 
-      <RecsView profile={profile} />
+      <RecsView profile={profile} profileId={id} />
     </div>
   );
 }

@@ -1,8 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { GenerateResponse, Recommendation, RecSet, TasteProfile } from "./types";
+import type { GenerateResponse, RecSet, TasteProfile, StoredRating } from "./types";
+import { ProfileFromLLMSchema, RecSetFromLLMSchema } from "./types";
 import { mockResponse } from "./mock";
 
 const MODEL = "claude-sonnet-4-5-20250929";
+
+// ---------------------------------------------------------------------------
+// Prompts — treat edits like code edits. Small, reviewed, with a stated reason.
+// ---------------------------------------------------------------------------
 
 const PROFILE_SYSTEM = `You are Palate, a taste-profiling assistant. A user describes things they love (and hate) across movies, books, music, food, places, shows — anything. Your job is to extract a *portrait of their taste*, not a list of items.
 
@@ -20,18 +25,18 @@ Output JSON ONLY, matching this schema:
 Rules:
 - Do not list example titles they mentioned — extract the underlying taste.
 - Be specific. "You like emotional honesty" is lazy. "You'd rather something land awkwardly than land safely" is better.
-- If they gave thin input, ask the profile to reflect that — say "this is a rough sketch" in the summary and keep dimensions hedged.
+- If they gave thin input, reflect that — say "this is a rough sketch" in the summary and keep dimensions hedged.
 - Never flatter. Never editorialize positively ("great taste!"). You are a mirror, not a fan.
 - Output valid JSON. No markdown fences. No preamble.`;
 
 const RECS_SYSTEM = `You are Palate. You are given a taste profile and must recommend 11 cross-category items this person will likely love. Pick the ONE BEST as the hero and 10 more for a browse feed.
 
-Categories to spread across: film, book, music, food, place, show, podcast, game. You do NOT need to use all categories — use whichever best fit the profile. Aim for 4-6 categories represented.
+Categories to spread across: film, book, music, food, place, show, podcast, game. You do NOT need to use all — pick whichever best fit the profile. Aim for 4-6 categories represented.
 
 Output JSON ONLY:
 {
   "hero": Recommendation,
-  "browse": Recommendation[] // 10 items
+  "browse": Recommendation[] // exactly 10 items
 }
 
 Each Recommendation:
@@ -49,9 +54,10 @@ Each Recommendation:
 
 Rules:
 - Do NOT recommend items they mentioned. Read the source text for hints of what they already know.
-- Mix well-known and obscure. About 60/40.
-- "whyYou" must reference the profile specifically. If you can't say why THIS person would like it, pick something else.
-- Do not recommend safe, canonical choices unless they deeply fit. No "The Godfather" as a safe bet.
+- The user is likely well-read/watched. Assume they've seen the canonical picks in categories they love. EARN your slot. Aim 30/70 well-known/obscure — you are not a "top 10 of all time" list.
+- No safe bets. No "The Godfather" or "1984" unless the profile deeply demands it.
+- "whyYou" must reference the profile specifically. If you can't say why THIS person would like it, pick something else. "whyYou" should make a callback to the user's actual words or metaphors where possible.
+- The hero should be the boldest specific match, not the safest broad one.
 - Output valid JSON. No markdown fences.`;
 
 function getClient(): Anthropic | null {
@@ -82,45 +88,89 @@ async function callClaudeText(client: Anthropic, system: string, user: string): 
   return block.text;
 }
 
+/**
+ * Generate a fresh taste profile and rec set from a free-text input.
+ *
+ * Three terminal states:
+ *   - status "demo": no ANTHROPIC_API_KEY configured — returns the mock response so the UI
+ *     stays fully functional for review and screenshots without spending money.
+ *   - status "ok":   a real call that parsed cleanly against the zod schemas.
+ *   - throws:        a real call that failed (network, API, or validation). The route handler
+ *     surfaces this to the user instead of quietly lying with canned data.
+ */
 export async function generate(sourceText: string): Promise<GenerateResponse> {
   const client = getClient();
-  if (!client) return mockResponse(sourceText);
+  if (!client) return { ...mockResponse(sourceText), status: "demo" };
 
-  try {
-    const profileText = await callClaudeText(client, PROFILE_SYSTEM, sourceText);
-    const profileRaw = extractJson(profileText) as Omit<TasteProfile, "sourceText">;
-    const profile: TasteProfile = { ...profileRaw, sourceText };
-
-    const recsPrompt = `Taste profile:\n${JSON.stringify(profile, null, 2)}\n\nOriginal source text from user:\n"""${sourceText}"""`;
-    const recsText = await callClaudeText(client, RECS_SYSTEM, recsPrompt);
-    const recsRaw = extractJson(recsText) as { hero: Recommendation; browse: Recommendation[] };
-
-    const recs: RecSet = {
-      hero: recsRaw.hero,
-      browse: recsRaw.browse,
-      generatedAt: new Date().toISOString(),
-    };
-
-    return { profile, recs, demo: false };
-  } catch (err) {
-    console.error("Claude call failed, falling back to demo mode:", err);
-    return mockResponse(sourceText);
+  const profileText = await callClaudeText(client, PROFILE_SYSTEM, sourceText);
+  const profileRaw = extractJson(profileText);
+  const profileParsed = ProfileFromLLMSchema.safeParse(profileRaw);
+  if (!profileParsed.success) {
+    throw new Error(`Profile schema mismatch: ${profileParsed.error.message}`);
   }
+  const profile: TasteProfile = { ...profileParsed.data, sourceText };
+
+  const recsPrompt = `Taste profile:\n${JSON.stringify(profile, null, 2)}\n\nOriginal source text from user:\n"""${sourceText}"""`;
+  const recsText = await callClaudeText(client, RECS_SYSTEM, recsPrompt);
+  const recsRaw = extractJson(recsText);
+  const recsParsed = RecSetFromLLMSchema.safeParse(recsRaw);
+  if (!recsParsed.success) {
+    throw new Error(`Recs schema mismatch: ${recsParsed.error.message}`);
+  }
+
+  const recs: RecSet = {
+    hero: recsParsed.data.hero,
+    browse: recsParsed.data.browse,
+    generatedAt: new Date().toISOString(),
+  };
+
+  return { profile, recs, status: "ok" };
 }
 
-export async function regenerateRecs(profile: TasteProfile, avoidTitles: string[] = []): Promise<RecSet> {
+/**
+ * Regenerate recs for an existing profile, optionally steered by prior ratings.
+ * Same demo/ok/throw contract as generate().
+ */
+export async function regenerateRecs(
+  profile: TasteProfile,
+  avoidTitles: string[] = [],
+  ratings: StoredRating[] = [],
+): Promise<{ recs: RecSet; status: "ok" | "demo" }> {
   const client = getClient();
-  if (!client) return mockResponse(profile.sourceText).recs;
+  if (!client) return { recs: mockResponse(profile.sourceText).recs, status: "demo" };
 
-  const avoid = avoidTitles.length ? `\n\nAlready shown (do not repeat): ${avoidTitles.join(", ")}` : "";
-  const prompt = `Taste profile:\n${JSON.stringify(profile, null, 2)}\n\nOriginal source text:\n"""${profile.sourceText}"""${avoid}`;
+  const avoid = avoidTitles.length
+    ? `\n\nAlready shown (do NOT repeat): ${avoidTitles.join(", ")}`
+    : "";
 
-  try {
-    const recsText = await callClaudeText(client, RECS_SYSTEM, prompt);
-    const recsRaw = extractJson(recsText) as { hero: Recommendation; browse: Recommendation[] };
-    return { hero: recsRaw.hero, browse: recsRaw.browse, generatedAt: new Date().toISOString() };
-  } catch (err) {
-    console.error("regenerateRecs failed, falling back to demo:", err);
-    return mockResponse(profile.sourceText).recs;
+  const ratingsBlock = buildRatingsBlock(ratings);
+
+  const prompt = `Taste profile:\n${JSON.stringify(profile, null, 2)}\n\nOriginal source text:\n"""${profile.sourceText}"""${ratingsBlock}${avoid}`;
+
+  const recsText = await callClaudeText(client, RECS_SYSTEM, prompt);
+  const recsRaw = extractJson(recsText);
+  const recsParsed = RecSetFromLLMSchema.safeParse(recsRaw);
+  if (!recsParsed.success) {
+    throw new Error(`Recs schema mismatch: ${recsParsed.error.message}`);
   }
+
+  return {
+    recs: {
+      hero: recsParsed.data.hero,
+      browse: recsParsed.data.browse,
+      generatedAt: new Date().toISOString(),
+    },
+    status: "ok",
+  };
+}
+
+function buildRatingsBlock(ratings: StoredRating[]): string {
+  if (ratings.length === 0) return "";
+  const loved = ratings.filter((r) => r.rating === "love").map((r) => r.title);
+  const rejected = ratings.filter((r) => r.rating === "nope").map((r) => r.title);
+  const parts: string[] = [];
+  if (loved.length) parts.push(`Previously loved: ${loved.join(", ")}`);
+  if (rejected.length) parts.push(`Previously rejected: ${rejected.join(", ")}`);
+  if (!parts.length) return "";
+  return `\n\nFeedback from prior picks (use this to sharpen the match):\n${parts.join("\n")}`;
 }

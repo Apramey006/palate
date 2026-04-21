@@ -8,6 +8,8 @@
   --accent: #c9512f;
   --accent-ink: #fff7ef;
   --hairline: rgba(26, 24, 21, 0.08);
+  --hairline-strong: rgba(26, 24, 21, 0.18);
+  --paper: #f6f0e4;
 }
 
 @theme inline {
@@ -18,9 +20,10 @@
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-hairline: var(--hairline);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-serif: "Iowan Old Style", "Apple Garamond", "Baskerville", "Georgia", serif;
+  --color-paper: var(--paper);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -32,6 +35,8 @@
     --accent: #e07a55;
     --accent-ink: #0f0e0c;
     --hairline: rgba(244, 239, 230, 0.1);
+    --hairline-strong: rgba(244, 239, 230, 0.2);
+    --paper: #17150f;
   }
 }
 
@@ -43,22 +48,78 @@ body {
 
 body {
   font-family: var(--font-sans), system-ui, sans-serif;
-  font-feature-settings: "ss01", "ss02", "cv11";
+  font-feature-settings: "ss01", "cv11";
 }
 
 .font-serif {
-  font-family: var(--font-serif);
+  font-family: var(--font-serif), "Iowan Old Style", "Apple Garamond", "Baskerville", "Georgia", serif;
+  font-variation-settings: "SOFT" 50, "opsz" 40;
+}
+
+.font-serif-display {
+  font-family: var(--font-serif), "Iowan Old Style", "Apple Garamond", "Baskerville", "Georgia", serif;
+  font-variation-settings: "SOFT" 100, "opsz" 144;
+}
+
+.font-mono {
+  font-family: var(--font-mono), "SF Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 .hairline {
   border-color: var(--hairline);
 }
 
-/* subtle in-page fade-in */
+.hairline-strong {
+  border-color: var(--hairline-strong);
+}
+
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--background),
+    0 0 0 4px rgba(201, 81, 47, 0.5);
+}
+
 @keyframes rise {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .rise {
   animation: rise 0.5s ease-out both;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--hairline) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .shimmer {
+    animation: none !important;
+  }
+  * {
+    transition-duration: 0.001ms !important;
+  }
+}
+
+.paper-grain {
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(at 27% 13%, rgba(201, 81, 47, 0.04) 0, transparent 40%),
+    radial-gradient(at 73% 87%, rgba(139, 128, 116, 0.05) 0, transparent 45%);
 }

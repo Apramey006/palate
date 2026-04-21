@@ -1,7 +1,8 @@
 "use client";
 
-import type { Recommendation } from "@/lib/types";
-import { useState } from "react";
+import type { Recommendation, RecRating } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { getRatings, setRating as persistRating } from "@/lib/ratings";
 
 const CATEGORY_LABEL: Record<Recommendation["category"], string> = {
   film: "Film",
@@ -14,17 +15,43 @@ const CATEGORY_LABEL: Record<Recommendation["category"], string> = {
   game: "Game",
 };
 
-export function RecCard({ rec, hero = false }: { rec: Recommendation; hero?: boolean }) {
-  const [rating, setRating] = useState<"love" | "meh" | "nope" | null>(null);
+export function RecCard({
+  rec,
+  hero = false,
+  profileId,
+}: {
+  rec: Recommendation;
+  hero?: boolean;
+  profileId: string;
+}) {
+  const [rating, setRating] = useState<RecRating | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      const existing = getRatings(profileId).find((r) => r.recId === rec.id);
+      setRating(existing?.rating ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [profileId, rec.id]);
+
+  function rate(next: RecRating) {
+    const applied = rating === next ? null : next;
+    setRating(applied);
+    persistRating(profileId, { id: rec.id, title: rec.title }, applied);
+  }
 
   return (
     <article
-      className={`group rise border hairline rounded-lg p-5 bg-surface/40 hover:bg-surface transition-colors ${
+      className={`group rise border hairline rounded-lg p-5 bg-surface/40 hover:bg-surface transition-colors flex flex-col ${
         hero ? "md:p-7" : ""
       }`}
     >
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] uppercase tracking-[0.15em] text-muted">
+        <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-muted">
           {CATEGORY_LABEL[rec.category]}
         </span>
         <span className="text-[10px] text-muted font-mono">
@@ -32,9 +59,7 @@ export function RecCard({ rec, hero = false }: { rec: Recommendation; hero?: boo
         </span>
       </div>
 
-      <h3
-        className={`font-serif leading-tight ${hero ? "text-3xl md:text-4xl" : "text-xl"} mb-1`}
-      >
+      <h3 className={`font-serif leading-tight ${hero ? "text-3xl md:text-4xl" : "text-xl"} mb-1`}>
         {rec.title}
       </h3>
       {(rec.creator || rec.year) && (
@@ -50,13 +75,15 @@ export function RecCard({ rec, hero = false }: { rec: Recommendation; hero?: boo
       </p>
 
       <div className="mb-4 pt-4 border-t hairline">
-        <p className="text-[10px] uppercase tracking-[0.15em] text-muted mb-1.5">Why you</p>
+        <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-muted mb-1.5">
+          Why this, for you
+        </p>
         <p className={`text-foreground/80 leading-relaxed ${hero ? "text-base" : "text-sm"}`}>
           {rec.whyYou}
         </p>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mt-auto gap-3 flex-wrap">
         <div className="flex flex-wrap gap-1.5">
           {rec.tags.slice(0, 3).map((t) => (
             <span
@@ -67,23 +94,28 @@ export function RecCard({ rec, hero = false }: { rec: Recommendation; hero?: boo
             </span>
           ))}
         </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-          <RatingButton active={rating === "love"} onClick={() => setRating("love")} label="Love">
-            ♥
-          </RatingButton>
-          <RatingButton active={rating === "meh"} onClick={() => setRating("meh")} label="Meh">
-            ◯
-          </RatingButton>
-          <RatingButton active={rating === "nope"} onClick={() => setRating("nope")} label="Nope">
-            ✕
-          </RatingButton>
+        <div className="flex items-center gap-1.5">
+          <RatingPill
+            active={rating === "love"}
+            onClick={() => rate("love")}
+            label="More like this"
+          >
+            More like this
+          </RatingPill>
+          <RatingPill
+            active={rating === "nope"}
+            onClick={() => rate("nope")}
+            label="Less like this"
+          >
+            Less like this
+          </RatingPill>
         </div>
       </div>
     </article>
   );
 }
 
-function RatingButton({
+function RatingPill({
   children,
   active,
   onClick,
@@ -100,8 +132,10 @@ function RatingButton({
       aria-label={label}
       aria-pressed={active}
       onClick={onClick}
-      className={`w-7 h-7 rounded-full text-xs flex items-center justify-center border hairline transition-colors ${
-        active ? "bg-accent text-accent-ink border-transparent" : "text-muted hover:text-foreground"
+      className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors focus-ring ${
+        active
+          ? "bg-accent text-accent-ink border-transparent"
+          : "text-muted hover:text-foreground opacity-70 hover:opacity-100 hairline"
       }`}
     >
       {children}
