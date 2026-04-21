@@ -1,65 +1,54 @@
-import Image from "next/image";
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="flex-1 flex flex-col">
+      <section className="max-w-3xl mx-auto px-6 pt-24 pb-16 rise">
+        <p className="text-xs uppercase tracking-[0.2em] text-muted mb-6">A taste profiler</p>
+        <h1 className="font-serif text-5xl md:text-6xl leading-[1.05] tracking-tight">
+          Tell Palate what you love.
+          <br />
+          <span className="text-muted">It will figure out why.</span>
+        </h1>
+        <p className="mt-8 text-lg text-muted max-w-xl leading-relaxed">
+          Most recommendation engines ask what genre you like. Palate asks you to describe a few
+          things you&apos;ve loved — movies, books, music, food, places, anything — and why. Then it
+          builds a portrait of your taste and hands you a hero pick plus ten more you probably
+          haven&apos;t found yet.
+        </p>
+        <div className="mt-10 flex items-center gap-4">
+          <Link
+            href="/new"
+            className="inline-flex items-center gap-2 bg-accent text-accent-ink px-6 py-3 rounded-full font-medium hover:opacity-90 transition-opacity"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            Profile my taste
+            <span aria-hidden>→</span>
+          </Link>
+          <span className="text-sm text-muted">~2 minutes. Nothing to install.</span>
         </div>
-      </main>
+      </section>
+
+      <section className="max-w-3xl mx-auto px-6 pb-24 grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[
+          {
+            title: "Describe",
+            body: "Not a survey. You write a paragraph about a handful of things you love. Palate reads for texture, not labels.",
+          },
+          {
+            title: "Reflect",
+            body: "Palate hands back a short portrait of your taste — the tensions, the loves, the allergies. Most of it will ring true. Some of it won't. That's the point.",
+          },
+          {
+            title: "Explore",
+            body: "One hero pick and ten more across film, books, music, food, and places. Each tells you why it fits — in your own language.",
+          },
+        ].map((step) => (
+          <div key={step.title} className="rise">
+            <h3 className="font-serif text-xl mb-2">{step.title}</h3>
+            <p className="text-muted leading-relaxed text-sm">{step.body}</p>
+          </div>
+        ))}
+      </section>
     </div>
   );
 }
