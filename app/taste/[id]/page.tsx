@@ -51,7 +51,7 @@ export default async function TastePage({
         </Link>
       </div>
 
-      <ProfileArtifact profile={profile} demo={demo} />
+      <ProfileArtifact profile={profile} profileId={id} demo={demo} />
 
       {profile.categoryProfiles && profile.categoryProfiles.length > 0 && (
         <>

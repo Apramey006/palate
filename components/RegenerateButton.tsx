@@ -21,8 +21,16 @@ export function RegenerateButton({
 
   async function regenerate() {
     setState("loading");
-    const avoid = [current.hero.title, ...current.browse.map((r) => r.title)];
     const ratings = getRatings(profileId);
+    // Titles to actively avoid re-recommending: current rec set + anything the user
+    // marked as "tried." The prompt's ratings block also covers this, but hard-listing
+    // in avoid is the belt-and-suspenders version.
+    const triedTitles = ratings.filter((r) => r.rating === "tried").map((r) => r.title);
+    const avoid = [
+      current.hero.title,
+      ...current.browse.map((r) => r.title),
+      ...triedTitles,
+    ];
     try {
       const res = await fetch("/api/recs", {
         method: "POST",
