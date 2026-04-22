@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Category, Recommendation, RecSet, TasteProfile } from "@/lib/types";
 import { RecCard } from "./RecCard";
@@ -9,7 +10,44 @@ import { getRatings } from "@/lib/ratings";
 
 const cacheKey = (profileId: string) => `palate:recs:${profileId}`;
 
+function isThinProfile(p: TasteProfile): boolean {
+  return p.headline.toLowerCase().startsWith("not enough to go on");
+}
+
 export function RecsView({ profile, profileId }: { profile: TasteProfile; profileId: string }) {
+  // Short-circuit if the profile is the honest "not enough to go on yet" stub —
+  // confident recs under an unclear profile is exactly the dissonance to avoid.
+  // Dispatch to a separate component so hooks below don't need to run.
+  if (isThinProfile(profile)) return <ThinProfileCTA />;
+  return <RecsViewContent profile={profile} profileId={profileId} />;
+}
+
+function ThinProfileCTA() {
+  return (
+    <section className="py-8 text-center border hairline rounded-lg bg-surface/40 px-6 rise">
+      <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-muted mb-4">
+        No recs yet
+      </p>
+      <h2 className="font-serif-display text-2xl md:text-3xl italic leading-tight mb-3">
+        Give Palate a little more to go on.
+      </h2>
+      <p className="text-muted text-sm max-w-md mx-auto mb-6 leading-relaxed">
+        The honest profile above is built from what you wrote — but there&apos;s not enough
+        texture to recommend against yet. Add a few more things you love, or say more about
+        the ones you listed.
+      </p>
+      <Link
+        href="/new"
+        className="inline-flex items-center gap-2 bg-accent text-accent-ink px-5 py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-opacity focus-ring"
+      >
+        Try again with more detail
+        <span aria-hidden>→</span>
+      </Link>
+    </section>
+  );
+}
+
+function RecsViewContent({ profile, profileId }: { profile: TasteProfile; profileId: string }) {
   const [recs, setRecs] = useState<RecSet | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

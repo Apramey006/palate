@@ -13,6 +13,10 @@ const MOCK_PROFILE: TasteProfile = {
   ],
   loves: ["tight pacing", "unreliable narrators", "music that sounds like weather", "food that tastes like a place", "places with a real hum"],
   avoids: ["sprawling runtimes", "characters you can't feel any friction with", "food that's only pretty", "places designed for photos"],
+  tensions: [
+    "You want art that keeps its voice quiet (places with a real hum, food that refuses to show off) — and you reach for work that 'never lets you breathe.' Restraint pulled against sustained intensity.",
+    "You're skeptical of sentimentality but you'll forgive a lot for a voice that feels honest — low tolerance for a register you also need to hear done right.",
+  ],
   categoryProfiles: [
     {
       category: "film",

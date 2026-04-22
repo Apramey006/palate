@@ -35,6 +35,9 @@ export const TasteProfileSchema = z.object({
   dimensions: z.array(TasteDimensionSchema).min(3).max(7),
   loves: z.array(z.string().min(1).max(60)).min(1).max(8),
   avoids: z.array(z.string().min(1).max(60)).min(1).max(8),
+  // Explicit named contradictions in the user's taste — "loves intense AND nostalgic".
+  // Optional on decode so old URL-encoded profiles still parse.
+  tensions: z.array(z.string().min(1).max(200)).max(3).optional(),
   categoryProfiles: z.array(CategoryProfileSchema).max(8).optional(),
   sourceText: z.string(),
 });
@@ -60,11 +63,14 @@ export const RecSetSchema = z.object({
 });
 export type RecSet = z.infer<typeof RecSetSchema>;
 
-export type GenerationStatus = "ok" | "demo" | "error";
+export type GenerationStatus = "ok" | "demo" | "thin" | "error";
 
 export interface GenerateResponse {
   profile: TasteProfile;
-  recs: RecSet;
+  // Absent when status === "thin" — the profile honestly said "not enough to go on yet",
+  // so there's no trustworthy signal to recommend against. Surfacing confident recs
+  // under an honest "unclear" profile is exactly the dissonance we want to avoid.
+  recs?: RecSet;
   status: GenerationStatus;
 }
 
@@ -76,7 +82,7 @@ export const RecSetFromLLMSchema = z.object({
   browse: z.array(RecommendationSchema).min(6).max(14),
 });
 
-export type RecRating = "love" | "meh" | "nope";
+export type RecRating = "love" | "meh" | "nope" | "tried";
 export interface StoredRating {
   recId: string;
   title: string;

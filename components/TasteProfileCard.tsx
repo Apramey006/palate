@@ -30,20 +30,14 @@ export function TasteProfileCard({
         data-card="taste-profile"
         className="relative paper-grain border hairline-strong rounded-xl p-8 md:p-10 shadow-[0_2px_12px_-2px_rgba(26,24,21,0.12),inset_0_0_0_0.5px_rgba(255,255,255,0.35)] overflow-hidden"
       >
-        <div className="flex items-start justify-between mb-8 font-mono text-[10px] uppercase tracking-[0.18em] text-muted beat-fade-1">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-            <span>Palate</span>
-            <span>·</span>
-            <span>A Taste Profile</span>
-          </div>
-          <div className="text-right">
-            <div>№ {serial}</div>
-            <div>{dateLabel}</div>
-          </div>
+        <div className="flex items-center gap-2 mb-8 font-mono text-[10px] uppercase tracking-[0.22em] text-muted beat-fade-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+          <span>Palate</span>
+          <span>·</span>
+          <span>A Taste Profile</span>
         </div>
 
-        <h1 className="font-serif-display text-4xl md:text-[3.25rem] leading-[1.05] tracking-tight italic mb-5 max-w-2xl beat-headline">
+        <h1 className="font-serif-display text-4xl md:text-[3.25rem] leading-[1.05] tracking-tight italic mb-5 max-w-2xl text-balance beat-headline">
           &ldquo;{profile.headline}&rdquo;
         </h1>
 
@@ -53,18 +47,37 @@ export function TasteProfileCard({
           {profile.summary}
         </p>
 
+        {profile.tensions && profile.tensions.length > 0 && (
+          <div className="mb-10 beat-fade-2 max-w-2xl border-l-2 border-accent/60 pl-5">
+            <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-muted mb-3">
+              Tensions
+            </p>
+            <ul className="space-y-3 font-serif text-base leading-relaxed text-foreground/85">
+              {profile.tensions.map((t, i) => (
+                <li key={i}>{t}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-[1.1fr_1fr] gap-10 beat-fade-3">
           <div>
             <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted mb-4 pb-2 border-b hairline">
               Dimensions
             </p>
-            <dl className="space-y-3">
+            <dl className="space-y-4">
               {profile.dimensions.map((d) => (
                 <div key={d.label}>
-                  <div className="flex items-baseline justify-between gap-4 mb-1">
+                  <div className="flex items-baseline justify-between gap-4 mb-1.5">
                     <dt className="text-sm font-medium">{d.label}</dt>
-                    <dd className="font-mono text-xs text-muted tabular-nums">
-                      {String(Math.round(d.strength * 100)).padStart(2, "0")}
+                    <dd
+                      aria-label={`Strength ${Math.round(d.strength * 10)} of 10`}
+                      className="flex-shrink-0 w-16 h-px bg-hairline relative overflow-hidden"
+                    >
+                      <span
+                        className="absolute inset-y-0 left-0 bg-accent"
+                        style={{ width: `${Math.max(6, d.strength * 100)}%` }}
+                      />
                     </dd>
                   </div>
                   <p className="text-xs text-muted leading-relaxed">{d.description}</p>
@@ -88,7 +101,7 @@ export function TasteProfileCard({
               <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted mb-3 pb-2 border-b hairline">
                 You walk away from
               </p>
-              <ul className="text-sm leading-relaxed space-y-1 font-serif text-muted">
+              <ul className="text-sm leading-relaxed space-y-1 font-serif italic text-muted">
                 {profile.avoids.map((a) => (
                   <li key={a}>— {a}</li>
                 ))}
