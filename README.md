@@ -45,10 +45,6 @@ Without a key, Palate runs in demo mode with a fixed mock profile.
 | `npm test` | Vitest |
 | `npm run test:watch` | Vitest (watch) |
 
-## Deploying
-
-Built for Vercel. Push to GitHub, import the repo, add `GOOGLE_API_KEY` as an env var. No DB to configure.
-
 ## License
 
 MIT
